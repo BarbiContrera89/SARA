@@ -1,0 +1,9 @@
+# Dependencias principales
+pyyaml>=6.0.1
+tqdm>=4.66.1
+jinja2>=3.1.2
+
+# Dependencias de desarrollo
+pytest>=7.4.0
+black>=23.7.0
+flake8>=6.1.0 
