@@ -1,0 +1,97 @@
+# Configuración de comandos de escaneo
+scan_commands:
+  ping:
+    command: "ping -n 4 {target}"
+    description: "Prueba de conectividad básica"
+    enabled: true
+    parser: "ping"
+    output_fields:
+      - paquetes_enviados
+      - paquetes_recibidos
+      - paquetes_perdidos
+      - tiempo_promedio
+  
+  nmap_basic:
+    command: "nmap -sV -T4 {target}"
+    description: "Escaneo básico de puertos y servicios"
+    enabled: true
+    parser: "nmap_basic"
+    output_fields:
+      - puertos_abiertos
+      - servicios_detectados
+      - sistema_operativo
+  
+  whois:
+    command: "whois {target}"
+    description: "Información de registro WHOIS"
+    enabled: true
+    parser: "whois"
+    output_fields:
+      - nombre_dominio
+      - registrante
+      - fecha_creacion
+      - fecha_expiracion
+      - servidores_nombre
+
+  nikto:
+    command: "nikto -h {target} -Format txt"
+    description: "Escaneo de vulnerabilidades web"
+    enabled: true
+    parser: "nikto"
+    output_fields:
+      - vulnerabilidades
+      - servidor_web
+      - puertos_analizados
+
+  dirb:
+    command: "dirb http://{target} -S"
+    description: "Búsqueda de directorios web"
+    enabled: true
+    parser: "dirb"
+    output_fields:
+      - directorios_encontrados
+      - tiempo_escaneo
+
+  sslscan:
+    command: "sslscan {target}"
+    description: "Análisis de configuración SSL/TLS"
+    enabled: true
+    parser: "sslscan"
+    output_fields:
+      - versiones_ssl
+      - cifrados
+      - vulnerabilidades
+
+  enum4linux:
+    command: "enum4linux -a {target}"
+    description: "Enumeración de sistemas Windows/Samba"
+    enabled: true
+    parser: "enum4linux"
+    output_fields:
+      - usuarios
+      - grupos
+      - shares
+
+# Perfiles de escaneo
+scan_profiles:
+  rapido:
+    - ping
+    - nmap_basic
+  
+  completo:
+    - ping
+    - nmap_basic
+    - whois
+    - nikto
+    - sslscan
+  
+  web:
+    - nikto
+    - dirb
+    - sslscan
+
+# Configuración general
+general:
+  timeout: 30  # Tiempo máximo de espera por comando en segundos
+  output_format: "json"  # Formato de salida por defecto
+  parse_results: true  # Activar/desactivar parseo de resultados 
