@@ -1261,6 +1261,35 @@ class Enum4linuxParser(Parser):
             raw_output=self.output
         )
 
+class DirbParser(Parser):
+    def parse(self) -> DirbResult:
+        directorios_encontrados = []
+        archivos_encontrados = []
+
+        # Patrones para directorios y archivos
+        dir_pattern = r"\+ (DIRECTORY): (.+)"
+        file_pattern = r"\+ (FILE): (.+)"
+
+        for line in self.output.split('\n'):
+            if re.search(dir_pattern, line):
+                match = re.search(dir_pattern, line)
+                directorios_encontrados.append({
+                    "tipo": match.group(1),
+                    "ruta": match.group(2)
+                })
+            elif re.search(file_pattern, line):
+                match = re.search(file_pattern, line)
+                archivos_encontrados.append({
+                    "tipo": match.group(1),
+                    "ruta": match.group(2)
+                })
+
+        return DirbResult(
+            directorios_encontrados=directorios_encontrados,
+            archivos_encontrados=archivos_encontrados,
+            raw_output=self.output
+        )
+
 # Diccionario de parsers disponibles
 PARSERS = {
     'ping': PingParser,
