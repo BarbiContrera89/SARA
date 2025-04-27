@@ -123,7 +123,6 @@ python sara.py 192.168.1.1 --no-parse
 - **Nikto**: Escaneo de vulnerabilidades web
 - **Dirb**: Búsqueda de directorios web
 - **SSLScan**: Análisis de configuración SSL/TLS
-- **Enum4linux**: Enumeración de sistemas Windows/Samba
 
 ## Reportes
 ### Formato HTML
