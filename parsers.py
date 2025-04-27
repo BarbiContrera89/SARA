@@ -45,24 +45,134 @@ class NmapResult:
     raw_output: str
 
     def html_parse(self) -> str:
-        puertos_html = "".join([
-            f"<li>Puerto {p['puerto']}/{p['protocolo']} - {p['estado']}</li>"
-            for p in self.puertos_abiertos
-        ]) if self.puertos_abiertos else "<li>No se encontraron puertos abiertos</li>"
+        # Generar tabla de puertos abiertos
+        puertos_html = """
+        <div class="ports-table">
+            <h4>Puertos Abiertos</h4>
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>Puerto</th>
+                        <th>Protocolo</th>
+                        <th>Estado</th>
+                        <th>Servicio</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
         
-        servicios_html = "".join([
-            f"<li>Puerto {s['puerto']}: {s['servicio']}</li>"
-            for s in self.servicios_detectados
-        ]) if self.servicios_detectados else "<li>No se detectaron servicios</li>"
+        # Combinar información de puertos y servicios
+        for puerto, servicio in zip(self.puertos_abiertos, self.servicios_detectados):
+            puertos_html += f"""
+                    <tr>
+                        <td>{puerto['puerto']}</td>
+                        <td>{puerto['protocolo']}</td>
+                        <td><span class="status-open">Abierto</span></td>
+                        <td>{servicio['servicio']}</td>
+                    </tr>
+            """
+        
+        puertos_html += """
+                </tbody>
+            </table>
+        </div>
+        """
+        
+        # Sección de sistema operativo
+        os_html = ""
+        if self.sistema_operativo:
+            os_html = f"""
+            <div class="os-info">
+                <h4>Sistema Operativo Detectado</h4>
+                <div class="os-details">
+                    <p>{self.sistema_operativo}</p>
+                </div>
+            </div>
+            """
         
         return f"""
         <div class="result-section nmap-result">
             <h3>Resultados de Nmap</h3>
-            <h4>Puertos Abiertos:</h4>
-            <ul>{puertos_html}</ul>
-            <h4>Servicios Detectados:</h4>
-            <ul>{servicios_html}</ul>
-            {f'<h4>Sistema Operativo:</h4><p>{self.sistema_operativo}</p>' if self.sistema_operativo else ''}
+            <div class="scan-summary">
+                <div class="summary-item">
+                    <span class="label">Puertos Escaneados:</span>
+                    <span class="value">{len(self.puertos_abiertos)}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">Servicios Detectados:</span>
+                    <span class="value">{len(self.servicios_detectados)}</span>
+                </div>
+            </div>
+            {puertos_html}
+            {os_html}
+            <style>
+                .nmap-result {{
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                }}
+                .scan-summary {{
+                    display: flex;
+                    gap: 20px;
+                    margin-bottom: 20px;
+                    padding: 15px;
+                    background-color: #e9ecef;
+                    border-radius: 6px;
+                }}
+                .summary-item {{
+                    display: flex;
+                    flex-direction: column;
+                }}
+                .label {{
+                    font-weight: bold;
+                    color: #495057;
+                }}
+                .value {{
+                    font-size: 1.2em;
+                    color: #2c3e50;
+                }}
+                .ports-table {{
+                    margin: 20px 0;
+                }}
+                .results-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 10px;
+                }}
+                .results-table th, .results-table td {{
+                    padding: 12px;
+                    text-align: left;
+                    border-bottom: 1px solid #dee2e6;
+                }}
+                .results-table th {{
+                    background-color: #2c3e50;
+                    color: white;
+                }}
+                .results-table tr:hover {{
+                    background-color: #f1f3f5;
+                }}
+                .status-open {{
+                    display: inline-block;
+                    padding: 4px 8px;
+                    background-color: #28a745;
+                    color: white;
+                    border-radius: 4px;
+                    font-size: 0.9em;
+                }}
+                .os-info {{
+                    margin-top: 20px;
+                    padding: 15px;
+                    background-color: #e9ecef;
+                    border-radius: 6px;
+                }}
+                .os-details {{
+                    margin-top: 10px;
+                    padding: 10px;
+                    background-color: white;
+                    border-radius: 4px;
+                }}
+            </style>
         </div>
         """
 
@@ -77,19 +187,118 @@ class WhoisResult:
     raw_output: str
 
     def html_parse(self) -> str:
-        dns_html = "".join([f"<li>{dns}</li>" for dns in self.servidores_dns]) if self.servidores_dns else "<li>No se encontraron servidores DNS</li>"
+        # Generar tabla de información del dominio
+        dominio_html = f"""
+        <div class="domain-info">
+            <h4>Información del Dominio</h4>
+            <div class="info-card">
+                <div class="info-row">
+                    <span class="info-label">Dominio:</span>
+                    <span class="info-value">{self.dominio}</span>
+                </div>
+                {f'<div class="info-row"><span class="info-label">Registrante:</span><span class="info-value">{self.registrante}</span></div>' if self.registrante else ''}
+                {f'<div class="info-row"><span class="info-label">Fecha de Creación:</span><span class="info-value">{self.fecha_creacion}</span></div>' if self.fecha_creacion else ''}
+                {f'<div class="info-row"><span class="info-label">Fecha de Expiración:</span><span class="info-value">{self.fecha_expiracion}</span></div>' if self.fecha_expiracion else ''}
+            </div>
+        </div>
+        """
+        
+        # Generar lista de servidores DNS
+        dns_html = """
+        <div class="dns-servers">
+            <h4>Servidores DNS</h4>
+            <div class="server-list">
+        """
+        
+        if self.servidores_dns:
+            for dns in self.servidores_dns:
+                dns_html += f"""
+                <div class="server-item">
+                    <span class="server-icon">🌐</span>
+                    <span class="server-name">{dns}</span>
+                </div>
+                """
+        else:
+            dns_html += """
+                <div class="no-servers">
+                    No se encontraron servidores DNS
+                </div>
+            """
+        
+        dns_html += """
+            </div>
+        </div>
+        """
         
         return f"""
         <div class="result-section whois-result">
             <h3>Resultados de Whois</h3>
-            <ul>
-                <li>Dominio: {self.dominio}</li>
-                {f'<li>Registrante: {self.registrante}</li>' if self.registrante else ''}
-                {f'<li>Fecha de creación: {self.fecha_creacion}</li>' if self.fecha_creacion else ''}
-                {f'<li>Fecha de expiración: {self.fecha_expiracion}</li>' if self.fecha_expiracion else ''}
-            </ul>
-            <h4>Servidores DNS:</h4>
-            <ul>{dns_html}</ul>
+            {dominio_html}
+            {dns_html}
+            <style>
+                .whois-result {{
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                }}
+                .domain-info {{
+                    margin-bottom: 20px;
+                }}
+                .info-card {{
+                    background-color: white;
+                    border-radius: 6px;
+                    padding: 15px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }}
+                .info-row {{
+                    display: flex;
+                    padding: 8px 0;
+                    border-bottom: 1px solid #eee;
+                }}
+                .info-row:last-child {{
+                    border-bottom: none;
+                }}
+                .info-label {{
+                    font-weight: bold;
+                    color: #495057;
+                    width: 150px;
+                }}
+                .info-value {{
+                    color: #2c3e50;
+                }}
+                .dns-servers {{
+                    margin-top: 20px;
+                }}
+                .server-list {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    margin-top: 10px;
+                }}
+                .server-item {{
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 10px;
+                    background-color: white;
+                    border-radius: 4px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }}
+                .server-icon {{
+                    font-size: 1.2em;
+                }}
+                .server-name {{
+                    color: #2c3e50;
+                }}
+                .no-servers {{
+                    padding: 15px;
+                    text-align: center;
+                    color: #6c757d;
+                    background-color: #f8f9fa;
+                    border-radius: 4px;
+                }}
+            </style>
         </div>
         """
 
@@ -102,30 +311,170 @@ class NiktoResult:
     raw_output: str
 
     def html_parse(self) -> str:
-        vuln_html = "".join([
-            f"<li class='vulnerability'>{v['tipo']}: {v['descripcion']}</li>"
-            for v in self.vulnerabilidades
-        ]) if self.vulnerabilidades else "<li>No se encontraron vulnerabilidades</li>"
+        # Generar sección de vulnerabilidades
+        vuln_html = """
+        <div class="vulnerabilities-section">
+            <h4>Vulnerabilidades Detectadas</h4>
+            <div class="vulnerabilities-list">
+        """
         
-        warning_html = "".join([
-            f"<li class='warning'>{w['tipo']}: {w['descripcion']}</li>"
-            for w in self.advertencias
-        ]) if self.advertencias else "<li>No se encontraron advertencias</li>"
+        if self.vulnerabilidades:
+            for vuln in self.vulnerabilidades:
+                vuln_html += f"""
+                <div class="vulnerability-item">
+                    <div class="vulnerability-header">
+                        <span class="vulnerability-icon">⚠️</span>
+                        <span class="vulnerability-type">{vuln['tipo']}</span>
+                    </div>
+                    <div class="vulnerability-description">
+                        {vuln['descripcion']}
+                    </div>
+                </div>
+                """
+        else:
+            vuln_html += """
+                <div class="no-vulnerabilities">
+                    No se detectaron vulnerabilidades críticas
+                </div>
+            """
         
-        info_html = "".join([
-            f"<li class='info'>{i['tipo']}: {i['descripcion']}</li>"
-            for i in self.informacion
-        ]) if self.informacion else "<li>No se encontró información adicional</li>"
+        vuln_html += """
+            </div>
+        </div>
+        """
+        
+        # Generar sección de advertencias
+        warning_html = """
+        <div class="warnings-section">
+            <h4>Advertencias de Seguridad</h4>
+            <div class="warnings-list">
+        """
+        
+        if self.advertencias:
+            for warning in self.advertencias:
+                warning_html += f"""
+                <div class="warning-item">
+                    <div class="warning-header">
+                        <span class="warning-icon">ℹ️</span>
+                        <span class="warning-type">{warning['tipo']}</span>
+                    </div>
+                    <div class="warning-description">
+                        {warning['descripcion']}
+                    </div>
+                </div>
+                """
+        else:
+            warning_html += """
+                <div class="no-warnings">
+                    No se detectaron advertencias de seguridad
+                </div>
+            """
+        
+        warning_html += """
+            </div>
+        </div>
+        """
+        
+        # Generar sección de información
+        info_html = """
+        <div class="info-section">
+            <h4>Información Adicional</h4>
+            <div class="info-list">
+        """
+        
+        if self.informacion:
+            for info in self.informacion:
+                info_html += f"""
+                <div class="info-item">
+                    <div class="info-header">
+                        <span class="info-icon">📋</span>
+                        <span class="info-type">{info['tipo']}</span>
+                    </div>
+                    <div class="info-description">
+                        {info['descripcion']}
+                    </div>
+                </div>
+                """
+        else:
+            info_html += """
+                <div class="no-info">
+                    No se encontró información adicional
+                </div>
+            """
+        
+        info_html += """
+            </div>
+        </div>
+        """
         
         return f"""
         <div class="result-section nikto-result">
             <h3>Resultados de Nikto</h3>
-            <h4>Vulnerabilidades:</h4>
-            <ul>{vuln_html}</ul>
-            <h4>Advertencias:</h4>
-            <ul>{warning_html}</ul>
-            <h4>Información:</h4>
-            <ul>{info_html}</ul>
+            {vuln_html}
+            {warning_html}
+            {info_html}
+            <style>
+                .nikto-result {{
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                }}
+                .vulnerabilities-section,
+                .warnings-section,
+                .info-section {{
+                    margin-bottom: 20px;
+                }}
+                .vulnerabilities-list,
+                .warnings-list,
+                .info-list {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                }}
+                .vulnerability-item,
+                .warning-item,
+                .info-item {{
+                    background-color: white;
+                    border-radius: 6px;
+                    padding: 15px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }}
+                .vulnerability-header,
+                .warning-header,
+                .info-header {{
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    margin-bottom: 10px;
+                }}
+                .vulnerability-icon,
+                .warning-icon,
+                .info-icon {{
+                    font-size: 1.2em;
+                }}
+                .vulnerability-type,
+                .warning-type,
+                .info-type {{
+                    font-weight: bold;
+                    color: #2c3e50;
+                }}
+                .vulnerability-description,
+                .warning-description,
+                .info-description {{
+                    color: #495057;
+                    line-height: 1.5;
+                }}
+                .no-vulnerabilities,
+                .no-warnings,
+                .no-info {{
+                    padding: 15px;
+                    text-align: center;
+                    color: #6c757d;
+                    background-color: #f8f9fa;
+                    border-radius: 4px;
+                }}
+            </style>
         </div>
         """
 
@@ -137,23 +486,136 @@ class DirbResult:
     raw_output: str
 
     def html_parse(self) -> str:
-        dirs_html = "".join([
-            f"<li>{d['ruta']}</li>"
-            for d in self.directorios_encontrados
-        ]) if self.directorios_encontrados else "<li>No se encontraron directorios</li>"
+        # Generar sección de directorios
+        dirs_html = """
+        <div class="directories-section">
+            <h4>Directorios Encontrados</h4>
+            <div class="directories-list">
+        """
         
-        files_html = "".join([
-            f"<li>{f['ruta']}</li>"
-            for f in self.archivos_encontrados
-        ]) if self.archivos_encontrados else "<li>No se encontraron archivos</li>"
+        if self.directorios_encontrados:
+            for dir_info in self.directorios_encontrados:
+                dirs_html += f"""
+                <div class="directory-item">
+                    <div class="directory-header">
+                        <span class="directory-icon">📁</span>
+                        <span class="directory-path">{dir_info['ruta']}</span>
+                    </div>
+                    <div class="directory-details">
+                        <span class="directory-type">{dir_info['tipo']}</span>
+                    </div>
+                </div>
+                """
+        else:
+            dirs_html += """
+                <div class="no-directories">
+                    No se encontraron directorios
+                </div>
+            """
+        
+        dirs_html += """
+            </div>
+        </div>
+        """
+        
+        # Generar sección de archivos
+        files_html = """
+        <div class="files-section">
+            <h4>Archivos Encontrados</h4>
+            <div class="files-list">
+        """
+        
+        if self.archivos_encontrados:
+            for file_info in self.archivos_encontrados:
+                files_html += f"""
+                <div class="file-item">
+                    <div class="file-header">
+                        <span class="file-icon">📄</span>
+                        <span class="file-path">{file_info['ruta']}</span>
+                    </div>
+                    <div class="file-details">
+                        <span class="file-type">{file_info['tipo']}</span>
+                    </div>
+                </div>
+                """
+        else:
+            files_html += """
+                <div class="no-files">
+                    No se encontraron archivos
+                </div>
+            """
+        
+        files_html += """
+            </div>
+        </div>
+        """
         
         return f"""
         <div class="result-section dirb-result">
             <h3>Resultados de Dirb</h3>
-            <h4>Directorios Encontrados:</h4>
-            <ul>{dirs_html}</ul>
-            <h4>Archivos Encontrados:</h4>
-            <ul>{files_html}</ul>
+            {dirs_html}
+            {files_html}
+            <style>
+                .dirb-result {{
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                }}
+                .directories-section,
+                .files-section {{
+                    margin-bottom: 20px;
+                }}
+                .directories-list,
+                .files-list {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                }}
+                .directory-item,
+                .file-item {{
+                    background-color: white;
+                    border-radius: 6px;
+                    padding: 15px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }}
+                .directory-header,
+                .file-header {{
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    margin-bottom: 10px;
+                }}
+                .directory-icon,
+                .file-icon {{
+                    font-size: 1.2em;
+                }}
+                .directory-path,
+                .file-path {{
+                    font-weight: bold;
+                    color: #2c3e50;
+                }}
+                .directory-details,
+                .file-details {{
+                    color: #495057;
+                    font-size: 0.9em;
+                }}
+                .directory-type,
+                .file-type {{
+                    background-color: #e9ecef;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 0.8em;
+                }}
+                .no-directories,
+                .no-files {{
+                    padding: 15px;
+                    text-align: center;
+                    color: #6c757d;
+                    background-color: #f8f9fa;
+                    border-radius: 4px;
+                }}
+            </style>
         </div>
         """
 
@@ -167,37 +629,218 @@ class SSLScanResult:
     raw_output: str
 
     def html_parse(self) -> str:
-        cert_html = "".join([
-            f"<li>{k}: {v}</li>"
-            for k, v in self.certificado.items()
-        ]) if self.certificado else "<li>No se encontró información del certificado</li>"
+        # Generar sección de certificado
+        cert_html = """
+        <div class="certificate-section">
+            <h4>Información del Certificado</h4>
+            <div class="certificate-info">
+        """
         
-        protocolos_html = "".join([
-            f"<li>{p}</li>"
-            for p in self.protocolos_soportados
-        ]) if self.protocolos_soportados else "<li>No se encontraron protocolos soportados</li>"
+        if self.certificado:
+            for key, value in self.certificado.items():
+                cert_html += f"""
+                <div class="certificate-item">
+                    <span class="certificate-label">{key}:</span>
+                    <span class="certificate-value">{value}</span>
+                </div>
+                """
+        else:
+            cert_html += """
+                <div class="no-certificate">
+                    No se encontró información del certificado
+                </div>
+            """
         
-        cifrados_html = "".join([
-            f"<li>{c['cifrado']} ({c['tipo']}, {c['bits']} bits) - {c['estado']}</li>"
-            for c in self.cifrados_soportados
-        ]) if self.cifrados_soportados else "<li>No se encontraron cifrados soportados</li>"
+        cert_html += """
+            </div>
+        </div>
+        """
         
-        vuln_html = "".join([
-            f"<li class='vulnerability'>{v}</li>"
-            for v in self.vulnerabilidades
-        ]) if self.vulnerabilidades else "<li>No se encontraron vulnerabilidades</li>"
+        # Generar sección de protocolos
+        protocols_html = """
+        <div class="protocols-section">
+            <h4>Protocolos Soportados</h4>
+            <div class="protocols-list">
+        """
+        
+        if self.protocolos_soportados:
+            for protocol in self.protocolos_soportados:
+                protocols_html += f"""
+                <div class="protocol-item">
+                    <span class="protocol-icon">🔒</span>
+                    <span class="protocol-name">{protocol}</span>
+                </div>
+                """
+        else:
+            protocols_html += """
+                <div class="no-protocols">
+                    No se encontraron protocolos soportados
+                </div>
+            """
+        
+        protocols_html += """
+            </div>
+        </div>
+        """
+        
+        # Generar sección de cifrados
+        ciphers_html = """
+        <div class="ciphers-section">
+            <h4>Cifrados Soportados</h4>
+            <div class="ciphers-list">
+        """
+        
+        if self.cifrados_soportados:
+            for cipher in self.cifrados_soportados:
+                ciphers_html += f"""
+                <div class="cipher-item">
+                    <div class="cipher-header">
+                        <span class="cipher-name">{cipher['cifrado']}</span>
+                        <span class="cipher-type">{cipher['tipo']}</span>
+                    </div>
+                    <div class="cipher-details">
+                        <span class="cipher-bits">{cipher['bits']} bits</span>
+                        <span class="cipher-status">{cipher['estado']}</span>
+                    </div>
+                </div>
+                """
+        else:
+            ciphers_html += """
+                <div class="no-ciphers">
+                    No se encontraron cifrados soportados
+                </div>
+            """
+        
+        ciphers_html += """
+            </div>
+        </div>
+        """
+        
+        # Generar sección de vulnerabilidades
+        vuln_html = """
+        <div class="vulnerabilities-section">
+            <h4>Vulnerabilidades Detectadas</h4>
+            <div class="vulnerabilities-list">
+        """
+        
+        if self.vulnerabilidades:
+            for vuln in self.vulnerabilidades:
+                vuln_html += f"""
+                <div class="vulnerability-item">
+                    <span class="vulnerability-icon">⚠️</span>
+                    <span class="vulnerability-text">{vuln}</span>
+                </div>
+                """
+        else:
+            vuln_html += """
+                <div class="no-vulnerabilities">
+                    No se detectaron vulnerabilidades
+                </div>
+            """
+        
+        vuln_html += """
+            </div>
+        </div>
+        """
         
         return f"""
         <div class="result-section sslscan-result">
             <h3>Resultados de SSLScan</h3>
-            <h4>Certificado:</h4>
-            <ul>{cert_html}</ul>
-            <h4>Protocolos Soportados:</h4>
-            <ul>{protocolos_html}</ul>
-            <h4>Cifrados Soportados:</h4>
-            <ul>{cifrados_html}</ul>
-            <h4>Vulnerabilidades:</h4>
-            <ul>{vuln_html}</ul>
+            {cert_html}
+            {protocols_html}
+            {ciphers_html}
+            {vuln_html}
+            <style>
+                .sslscan-result {{
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                }}
+                .certificate-section,
+                .protocols-section,
+                .ciphers-section,
+                .vulnerabilities-section {{
+                    margin-bottom: 20px;
+                }}
+                .certificate-info,
+                .protocols-list,
+                .ciphers-list,
+                .vulnerabilities-list {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                }}
+                .certificate-item,
+                .protocol-item,
+                .cipher-item,
+                .vulnerability-item {{
+                    background-color: white;
+                    border-radius: 6px;
+                    padding: 15px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }}
+                .certificate-label {{
+                    font-weight: bold;
+                    color: #2c3e50;
+                    width: 150px;
+                    display: inline-block;
+                }}
+                .certificate-value {{
+                    color: #495057;
+                }}
+                .protocol-item,
+                .vulnerability-item {{
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }}
+                .protocol-icon,
+                .vulnerability-icon {{
+                    font-size: 1.2em;
+                }}
+                .protocol-name,
+                .vulnerability-text {{
+                    color: #2c3e50;
+                }}
+                .cipher-header {{
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+                }}
+                .cipher-name {{
+                    font-weight: bold;
+                    color: #2c3e50;
+                }}
+                .cipher-type {{
+                    background-color: #e9ecef;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 0.8em;
+                }}
+                .cipher-details {{
+                    display: flex;
+                    gap: 15px;
+                    color: #495057;
+                    font-size: 0.9em;
+                }}
+                .cipher-bits,
+                .cipher-status {{
+                    background-color: #f8f9fa;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                }}
+                .no-certificate,
+                .no-protocols,
+                .no-ciphers,
+                .no-vulnerabilities {{
+                    padding: 15px;
+                    text-align: center;
+                    color: #6c757d;
+                    background-color: #f8f9fa;
+                    border-radius: 4px;
+                }}
+            </style>
         </div>
         """
 
@@ -211,26 +854,192 @@ class Enum4linuxResult:
     raw_output: str
 
     def html_parse(self) -> str:
-        users_html = "".join([f"<li>{u}</li>" for u in self.usuarios]) if self.usuarios else "<li>No se encontraron usuarios</li>"
-        groups_html = "".join([f"<li>{g}</li>" for g in self.grupos]) if self.grupos else "<li>No se encontraron grupos</li>"
-        shares_html = "".join([f"<li>{s}</li>" for s in self.recursos_compartidos]) if self.recursos_compartidos else "<li>No se encontraron recursos compartidos</li>"
+        # Generar sección de usuarios
+        users_html = """
+        <div class="users-section">
+            <h4>Usuarios Encontrados</h4>
+            <div class="users-list">
+        """
         
-        info_html = "".join([
-            f"<li>{k}: {v}</li>"
-            for k, v in self.informacion_sistema.items()
-        ]) if self.informacion_sistema else "<li>No se encontró información del sistema</li>"
+        if self.usuarios:
+            for user in self.usuarios:
+                users_html += f"""
+                <div class="user-item">
+                    <span class="user-icon">👤</span>
+                    <span class="user-name">{user}</span>
+                </div>
+                """
+        else:
+            users_html += """
+                <div class="no-users">
+                    No se encontraron usuarios
+                </div>
+            """
+        
+        users_html += """
+            </div>
+        </div>
+        """
+        
+        # Generar sección de grupos
+        groups_html = """
+        <div class="groups-section">
+            <h4>Grupos Encontrados</h4>
+            <div class="groups-list">
+        """
+        
+        if self.grupos:
+            for group in self.grupos:
+                groups_html += f"""
+                <div class="group-item">
+                    <span class="group-icon">👥</span>
+                    <span class="group-name">{group}</span>
+                </div>
+                """
+        else:
+            groups_html += """
+                <div class="no-groups">
+                    No se encontraron grupos
+                </div>
+            """
+        
+        groups_html += """
+            </div>
+        </div>
+        """
+        
+        # Generar sección de recursos compartidos
+        shares_html = """
+        <div class="shares-section">
+            <h4>Recursos Compartidos</h4>
+            <div class="shares-list">
+        """
+        
+        if self.recursos_compartidos:
+            for share in self.recursos_compartidos:
+                shares_html += f"""
+                <div class="share-item">
+                    <span class="share-icon">📂</span>
+                    <span class="share-name">{share}</span>
+                </div>
+                """
+        else:
+            shares_html += """
+                <div class="no-shares">
+                    No se encontraron recursos compartidos
+                </div>
+            """
+        
+        shares_html += """
+            </div>
+        </div>
+        """
+        
+        # Generar sección de información del sistema
+        system_html = """
+        <div class="system-section">
+            <h4>Información del Sistema</h4>
+            <div class="system-info">
+        """
+        
+        if self.informacion_sistema:
+            for key, value in self.informacion_sistema.items():
+                system_html += f"""
+                <div class="system-item">
+                    <span class="system-label">{key}:</span>
+                    <span class="system-value">{value}</span>
+                </div>
+                """
+        else:
+            system_html += """
+                <div class="no-system-info">
+                    No se encontró información del sistema
+                </div>
+            """
+        
+        system_html += """
+            </div>
+        </div>
+        """
         
         return f"""
         <div class="result-section enum4linux-result">
             <h3>Resultados de Enum4linux</h3>
-            <h4>Usuarios:</h4>
-            <ul>{users_html}</ul>
-            <h4>Grupos:</h4>
-            <ul>{groups_html}</ul>
-            <h4>Recursos Compartidos:</h4>
-            <ul>{shares_html}</ul>
-            <h4>Información del Sistema:</h4>
-            <ul>{info_html}</ul>
+            {users_html}
+            {groups_html}
+            {shares_html}
+            {system_html}
+            <style>
+                .enum4linux-result {{
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                }}
+                .users-section,
+                .groups-section,
+                .shares-section,
+                .system-section {{
+                    margin-bottom: 20px;
+                }}
+                .users-list,
+                .groups-list,
+                .shares-list,
+                .system-info {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                }}
+                .user-item,
+                .group-item,
+                .share-item,
+                .system-item {{
+                    background-color: white;
+                    border-radius: 6px;
+                    padding: 15px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }}
+                .user-item,
+                .group-item,
+                .share-item {{
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }}
+                .user-icon,
+                .group-icon,
+                .share-icon {{
+                    font-size: 1.2em;
+                }}
+                .user-name,
+                .group-name,
+                .share-name {{
+                    color: #2c3e50;
+                }}
+                .system-item {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }}
+                .system-label {{
+                    font-weight: bold;
+                    color: #2c3e50;
+                    width: 150px;
+                }}
+                .system-value {{
+                    color: #495057;
+                }}
+                .no-users,
+                .no-groups,
+                .no-shares,
+                .no-system-info {{
+                    padding: 15px;
+                    text-align: center;
+                    color: #6c757d;
+                    background-color: #f8f9fa;
+                    border-radius: 4px;
+                }}
+            </style>
         </div>
         """
 
@@ -367,35 +1176,6 @@ class NiktoParser(Parser):
             vulnerabilidades=vulnerabilidades,
             advertencias=advertencias,
             informacion=informacion,
-            raw_output=self.output
-        )
-
-class DirbParser(Parser):
-    def parse(self) -> DirbResult:
-        directorios_encontrados = []
-        archivos_encontrados = []
-
-        # Patrones para directorios y archivos
-        dir_pattern = r"\+ (DIRECTORY): (.+)"
-        file_pattern = r"\+ (FILE): (.+)"
-
-        for line in self.output.split('\n'):
-            if re.search(dir_pattern, line):
-                match = re.search(dir_pattern, line)
-                directorios_encontrados.append({
-                    "tipo": match.group(1),
-                    "ruta": match.group(2)
-                })
-            elif re.search(file_pattern, line):
-                match = re.search(file_pattern, line)
-                archivos_encontrados.append({
-                    "tipo": match.group(1),
-                    "ruta": match.group(2)
-                })
-
-        return DirbResult(
-            directorios_encontrados=directorios_encontrados,
-            archivos_encontrados=archivos_encontrados,
             raw_output=self.output
         )
 
