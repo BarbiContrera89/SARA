@@ -1373,4 +1373,3 @@ PARSERS = {
     'sslscan': SSLScanParser,
     'enum4linux': Enum4linuxParser
 } 
-} 
