@@ -92,25 +92,34 @@ class NmapResult:
         
         return f"""
         <div class="result-section nmap-result">
-            <h3>Resultados de Nmap</h3>
-            <div class="scan-summary">
-                <div class="summary-item">
-                    <span class="label">Puertos Escaneados:</span>
-                    <span class="value">{len(self.puertos_abiertos)}</span>
+            <div class="nmap-container">
+                <h3>Resultados de Nmap</h3>
+                <div class="scan-summary">
+                    <div class="summary-item">
+                        <span class="label">Puertos Escaneados:</span>
+                        <span class="value">{len(self.puertos_abiertos)}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Servicios Detectados:</span>
+                        <span class="value">{len(self.servicios_detectados)}</span>
+                    </div>
                 </div>
-                <div class="summary-item">
-                    <span class="label">Servicios Detectados:</span>
-                    <span class="value">{len(self.servicios_detectados)}</span>
-                </div>
+                {puertos_html}
+                {os_html}
             </div>
-            {puertos_html}
-            {os_html}
             <style>
                 .nmap-result {{
                     background-color: #f8f9fa;
                     border-radius: 8px;
                     padding: 20px;
                     margin-bottom: 20px;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                }}
+                .nmap-container {{
+                    background-color: white;
+                    border-radius: 6px;
+                    padding: 20px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
                 }}
                 .scan-summary {{
                     display: flex;
