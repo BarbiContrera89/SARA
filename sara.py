@@ -91,12 +91,8 @@ def parsear_resultado(herramienta, salida, config):
         campos_solicitados = config['scan_commands'][herramienta].get('output_fields', [])
         if not campos_solicitados:
             return resultado.__dict__
-            
-        return {
-            campo: getattr(resultado, campo)
-            for campo in campos_solicitados
-            if hasattr(resultado, campo)
-        }
+ 
+        return resultado
     except Exception as e:
         print(f"Error al parsear resultado de {herramienta}: {str(e)}")
         return {'raw_output': salida, 'error_parseo': str(e)}
