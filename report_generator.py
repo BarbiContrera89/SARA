@@ -37,13 +37,19 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
                 margin: 0;
                 padding: 20px;
                 color: #333;
+                background-color: #f5f5f5;
             }}
             .container {{
                 max-width: 1200px;
                 margin: 0 auto;
+                background-color: white;
+                padding: 20px;
+                border-radius: 5px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
             }}
             .header {{
-                background-color: #f8f9fa;
+                background-color: #2c3e50;
+                color: white;
                 padding: 20px;
                 border-radius: 5px;
                 margin-bottom: 20px;
@@ -53,9 +59,15 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
                 padding: 15px;
                 border: 1px solid #ddd;
                 border-radius: 5px;
+                background-color: #fff;
             }}
             h1, h2, h3, h4 {{
                 color: #2c3e50;
+                margin-top: 0;
+            }}
+            .header h1 {{
+                color: white;
+                margin: 0;
             }}
             ul {{
                 list-style-type: none;
@@ -63,19 +75,46 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
             }}
             li {{
                 margin-bottom: 5px;
+                padding: 5px;
+                border-left: 3px solid #3498db;
             }}
             .vulnerability {{
                 color: #e74c3c;
+                border-left-color: #e74c3c;
             }}
             .warning {{
                 color: #f39c12;
+                border-left-color: #f39c12;
             }}
             .info {{
                 color: #3498db;
+                border-left-color: #3498db;
             }}
             .timestamp {{
-                color: #7f8c8d;
+                color: #bdc3c7;
                 font-size: 0.9em;
+                margin-top: 10px;
+            }}
+            .summary {{
+                background-color: #ecf0f1;
+                padding: 15px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+            }}
+            .tool-status {{
+                display: inline-block;
+                padding: 3px 8px;
+                border-radius: 3px;
+                font-size: 0.8em;
+                margin-left: 10px;
+            }}
+            .success {{
+                background-color: #2ecc71;
+                color: white;
+            }}
+            .error {{
+                background-color: #e74c3c;
+                color: white;
             }}
         </style>
     </head>
@@ -87,12 +126,35 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
                 <p><strong>Perfil:</strong> {perfil}</p>
                 <p class="timestamp">Generado el: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
             </div>
+            
+            <div class="summary">
+                <h2>Resumen del Escaneo</h2>
+                <p>Total de herramientas ejecutadas: {len(resultados)}</p>
+                <p>Herramientas con éxito: {sum(1 for r in resultados.values() if not isinstance(r, dict) or 'error' not in r)}</p>
+                <p>Herramientas con error: {sum(1 for r in resultados.values() if isinstance(r, dict) and 'error' in r)}</p>
+            </div>
     """
 
     # Añadir resultados de cada herramienta
     for herramienta, resultado in resultados.items():
         if hasattr(resultado, 'html_parse'):
             contenido_html += resultado.html_parse()
+        elif isinstance(resultado, dict) and 'error' in resultado:
+            contenido_html += f"""
+            <div class="result-section">
+                <h3>{herramienta}</h3>
+                <div class="error">
+                    <p>Error: {resultado['error']}</p>
+                </div>
+            </div>
+            """
+        else:
+            contenido_html += f"""
+            <div class="result-section">
+                <h3>{herramienta}</h3>
+                <pre>{str(resultado)}</pre>
+            </div>
+            """
 
     # Cerrar el HTML
     contenido_html += """

@@ -23,7 +23,7 @@ class PingResult:
 
     def html_parse(self) -> str:
         return f"""
-        <div class="ping-result">
+        <div class="result-section ping-result">
             <h3>Resultados de Ping</h3>
             <ul>
                 <li>Paquetes enviados: {self.paquetes_enviados}</li>
@@ -48,15 +48,15 @@ class NmapResult:
         puertos_html = "".join([
             f"<li>Puerto {p['puerto']}/{p['protocolo']} - {p['estado']}</li>"
             for p in self.puertos_abiertos
-        ])
+        ]) if self.puertos_abiertos else "<li>No se encontraron puertos abiertos</li>"
         
         servicios_html = "".join([
             f"<li>Puerto {s['puerto']}: {s['servicio']}</li>"
             for s in self.servicios_detectados
-        ])
+        ]) if self.servicios_detectados else "<li>No se detectaron servicios</li>"
         
         return f"""
-        <div class="nmap-result">
+        <div class="result-section nmap-result">
             <h3>Resultados de Nmap</h3>
             <h4>Puertos Abiertos:</h4>
             <ul>{puertos_html}</ul>
@@ -77,10 +77,10 @@ class WhoisResult:
     raw_output: str
 
     def html_parse(self) -> str:
-        dns_html = "".join([f"<li>{dns}</li>" for dns in self.servidores_dns])
+        dns_html = "".join([f"<li>{dns}</li>" for dns in self.servidores_dns]) if self.servidores_dns else "<li>No se encontraron servidores DNS</li>"
         
         return f"""
-        <div class="whois-result">
+        <div class="result-section whois-result">
             <h3>Resultados de Whois</h3>
             <ul>
                 <li>Dominio: {self.dominio}</li>
@@ -103,22 +103,22 @@ class NiktoResult:
 
     def html_parse(self) -> str:
         vuln_html = "".join([
-            f"<li>{v['tipo']}: {v['descripcion']}</li>"
+            f"<li class='vulnerability'>{v['tipo']}: {v['descripcion']}</li>"
             for v in self.vulnerabilidades
-        ])
+        ]) if self.vulnerabilidades else "<li>No se encontraron vulnerabilidades</li>"
         
         warning_html = "".join([
-            f"<li>{w['tipo']}: {w['descripcion']}</li>"
+            f"<li class='warning'>{w['tipo']}: {w['descripcion']}</li>"
             for w in self.advertencias
-        ])
+        ]) if self.advertencias else "<li>No se encontraron advertencias</li>"
         
         info_html = "".join([
-            f"<li>{i['tipo']}: {i['descripcion']}</li>"
+            f"<li class='info'>{i['tipo']}: {i['descripcion']}</li>"
             for i in self.informacion
-        ])
+        ]) if self.informacion else "<li>No se encontró información adicional</li>"
         
         return f"""
-        <div class="nikto-result">
+        <div class="result-section nikto-result">
             <h3>Resultados de Nikto</h3>
             <h4>Vulnerabilidades:</h4>
             <ul>{vuln_html}</ul>
@@ -140,15 +140,15 @@ class DirbResult:
         dirs_html = "".join([
             f"<li>{d['ruta']}</li>"
             for d in self.directorios_encontrados
-        ])
+        ]) if self.directorios_encontrados else "<li>No se encontraron directorios</li>"
         
         files_html = "".join([
             f"<li>{f['ruta']}</li>"
             for f in self.archivos_encontrados
-        ])
+        ]) if self.archivos_encontrados else "<li>No se encontraron archivos</li>"
         
         return f"""
-        <div class="dirb-result">
+        <div class="result-section dirb-result">
             <h3>Resultados de Dirb</h3>
             <h4>Directorios Encontrados:</h4>
             <ul>{dirs_html}</ul>
@@ -170,25 +170,25 @@ class SSLScanResult:
         cert_html = "".join([
             f"<li>{k}: {v}</li>"
             for k, v in self.certificado.items()
-        ])
+        ]) if self.certificado else "<li>No se encontró información del certificado</li>"
         
         protocolos_html = "".join([
             f"<li>{p}</li>"
             for p in self.protocolos_soportados
-        ])
+        ]) if self.protocolos_soportados else "<li>No se encontraron protocolos soportados</li>"
         
         cifrados_html = "".join([
             f"<li>{c['cifrado']} ({c['tipo']}, {c['bits']} bits) - {c['estado']}</li>"
             for c in self.cifrados_soportados
-        ])
+        ]) if self.cifrados_soportados else "<li>No se encontraron cifrados soportados</li>"
         
         vuln_html = "".join([
-            f"<li>{v}</li>"
+            f"<li class='vulnerability'>{v}</li>"
             for v in self.vulnerabilidades
-        ])
+        ]) if self.vulnerabilidades else "<li>No se encontraron vulnerabilidades</li>"
         
         return f"""
-        <div class="sslscan-result">
+        <div class="result-section sslscan-result">
             <h3>Resultados de SSLScan</h3>
             <h4>Certificado:</h4>
             <ul>{cert_html}</ul>
@@ -211,17 +211,17 @@ class Enum4linuxResult:
     raw_output: str
 
     def html_parse(self) -> str:
-        users_html = "".join([f"<li>{u}</li>" for u in self.usuarios])
-        groups_html = "".join([f"<li>{g}</li>" for g in self.grupos])
-        shares_html = "".join([f"<li>{s}</li>" for s in self.recursos_compartidos])
+        users_html = "".join([f"<li>{u}</li>" for u in self.usuarios]) if self.usuarios else "<li>No se encontraron usuarios</li>"
+        groups_html = "".join([f"<li>{g}</li>" for g in self.grupos]) if self.grupos else "<li>No se encontraron grupos</li>"
+        shares_html = "".join([f"<li>{s}</li>" for s in self.recursos_compartidos]) if self.recursos_compartidos else "<li>No se encontraron recursos compartidos</li>"
         
         info_html = "".join([
             f"<li>{k}: {v}</li>"
             for k, v in self.informacion_sistema.items()
-        ])
+        ]) if self.informacion_sistema else "<li>No se encontró información del sistema</li>"
         
         return f"""
-        <div class="enum4linux-result">
+        <div class="result-section enum4linux-result">
             <h3>Resultados de Enum4linux</h3>
             <h4>Usuarios:</h4>
             <ul>{users_html}</ul>
