@@ -15,7 +15,7 @@ scan_commands:
     command: "nmap -sV -T4 {target}"
     description: "Escaneo básico de puertos y servicios"
     enabled: true
-    parser: "nmap_basic"
+    parser: "nmap"
     output_fields:
       - puertos_abiertos
       - servicios_detectados
