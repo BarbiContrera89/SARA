@@ -45,47 +45,78 @@ class NmapResult:
     raw_output: str
 
     def html_parse(self) -> str:
-        # Generar tabla de puertos abiertos
-        puertos_html = """
-        <div class="ports-table">
-            <h4>Puertos Abiertos</h4>
-            <table class="results-table">
-                <thead>
-                    <tr>
-                        <th>Puerto</th>
-                        <th>Protocolo</th>
-                        <th>Estado</th>
-                        <th>Servicio</th>
-                    </tr>
-                </thead>
-                <tbody>
-        """
-        
-        # Combinar información de puertos y servicios
+        # Categorizar puertos por servicio común
+        puertos_categorizados = {
+            "Web": [],
+            "Base de Datos": [],
+            "Correo": [],
+            "Archivos": [],
+            "Otros": []
+        }
+
         for puerto, servicio in zip(self.puertos_abiertos, self.servicios_detectados):
-            puertos_html += f"""
-                    <tr>
-                        <td>{puerto['puerto']}</td>
-                        <td>{puerto['protocolo']}</td>
-                        <td><span class="status-open">Abierto</span></td>
-                        <td>{servicio['servicio']}</td>
-                    </tr>
-            """
-        
-        puertos_html += """
-                </tbody>
-            </table>
-        </div>
-        """
-        
+            port_info = {
+                "puerto": puerto['puerto'],
+                "protocolo": puerto['protocolo'],
+                "servicio": servicio['servicio'],
+                "version": servicio.get('version', 'No detectada'),
+                "detalles": servicio.get('detalles', '')
+            }
+
+            # Categorizar por puerto común
+            if port_info['puerto'] in ['80', '443', '8080', '8443']:
+                puertos_categorizados["Web"].append(port_info)
+            elif port_info['puerto'] in ['3306', '5432', '27017']:
+                puertos_categorizados["Base de Datos"].append(port_info)
+            elif port_info['puerto'] in ['25', '110', '143', '465', '587', '993', '995']:
+                puertos_categorizados["Correo"].append(port_info)
+            elif port_info['puerto'] in ['21', '22', '445', '2049']:
+                puertos_categorizados["Archivos"].append(port_info)
+            else:
+                puertos_categorizados["Otros"].append(port_info)
+
+        # Generar HTML para cada categoría
+        categorias_html = ""
+        for categoria, puertos in puertos_categorizados.items():
+            if puertos:
+                categorias_html += f"""
+                <div class="port-category">
+                    <h4 class="category-title">{categoria}</h4>
+                    <div class="ports-list">
+                """
+                
+                for port_info in puertos:
+                    categorias_html += f"""
+                        <div class="port-card">
+                            <div class="port-header">
+                                <span class="port-number">{port_info['puerto']}/{port_info['protocolo']}</span>
+                                <span class="port-status">Abierto</span>
+                            </div>
+                            <div class="port-details">
+                                <div class="service-info">
+                                    <span class="service-name">{port_info['servicio']}</span>
+                                    {f'<span class="service-version">v{port_info["version"]}</span>' if port_info['version'] != 'No detectada' else ''}
+                                </div>
+                                {f'<div class="service-details">{port_info["detalles"]}</div>' if port_info['detalles'] else ''}
+                            </div>
+                        </div>
+                    """
+                
+                categorias_html += """
+                    </div>
+                </div>
+                """
+
         # Sección de sistema operativo
         os_html = ""
         if self.sistema_operativo:
             os_html = f"""
-            <div class="os-info">
+            <div class="os-section">
                 <h4>Sistema Operativo Detectado</h4>
-                <div class="os-details">
-                    <p>{self.sistema_operativo}</p>
+                <div class="os-card">
+                    <div class="os-details">
+                        <p>{self.sistema_operativo}</p>
+                    </div>
                 </div>
             </div>
             """
@@ -104,7 +135,7 @@ class NmapResult:
                         <span class="value">{len(self.servicios_detectados)}</span>
                     </div>
                 </div>
-                {puertos_html}
+                {categorias_html}
                 {os_html}
             </div>
             <style>
@@ -141,45 +172,78 @@ class NmapResult:
                     font-size: 1.2em;
                     color: #2c3e50;
                 }}
-                .ports-table {{
+                .port-category {{
                     margin: 20px 0;
                 }}
-                .results-table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 10px;
+                .category-title {{
+                    color: #2c3e50;
+                    margin-bottom: 15px;
+                    padding-bottom: 5px;
+                    border-bottom: 2px solid #e9ecef;
                 }}
-                .results-table th, .results-table td {{
-                    padding: 12px;
-                    text-align: left;
-                    border-bottom: 1px solid #dee2e6;
+                .ports-list {{
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                    gap: 15px;
                 }}
-                .results-table th {{
-                    background-color: #2c3e50;
-                    color: white;
+                .port-card {{
+                    background-color: white;
+                    border-radius: 6px;
+                    padding: 15px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    transition: transform 0.2s;
                 }}
-                .results-table tr:hover {{
-                    background-color: #f1f3f5;
+                .port-card:hover {{
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
                 }}
-                .status-open {{
-                    display: inline-block;
-                    padding: 4px 8px;
+                .port-header {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                }}
+                .port-number {{
+                    font-weight: bold;
+                    color: #2c3e50;
+                    font-size: 1.1em;
+                }}
+                .port-status {{
                     background-color: #28a745;
                     color: white;
+                    padding: 4px 8px;
                     border-radius: 4px;
                     font-size: 0.9em;
                 }}
-                .os-info {{
+                .service-info {{
+                    margin-bottom: 8px;
+                }}
+                .service-name {{
+                    font-weight: bold;
+                    color: #495057;
+                }}
+                .service-version {{
+                    background-color: #e9ecef;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    margin-left: 8px;
+                    font-size: 0.9em;
+                }}
+                .service-details {{
+                    color: #6c757d;
+                    font-size: 0.9em;
+                    margin-top: 5px;
+                }}
+                .os-section {{
                     margin-top: 20px;
-                    padding: 15px;
+                }}
+                .os-card {{
                     background-color: #e9ecef;
                     border-radius: 6px;
+                    padding: 15px;
                 }}
                 .os-details {{
-                    margin-top: 10px;
-                    padding: 10px;
-                    background-color: white;
-                    border-radius: 4px;
+                    color: #495057;
                 }}
             </style>
         </div>
@@ -1308,4 +1372,5 @@ PARSERS = {
     'dirb': DirbParser,
     'sslscan': SSLScanParser,
     'enum4linux': Enum4linuxParser
+} 
 } 
