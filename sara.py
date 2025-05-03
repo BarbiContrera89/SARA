@@ -118,17 +118,13 @@ def mostrar_resultados(resultados, config):
                 print(f"Error: {resultado['error']}")
             else:
                 if config['general'].get('parse_results', True):
-
+                    # Mostrar resultados parseados
                     if isinstance(resultado, dict):
                         for campo, valor in resultado.items():
-                            print(f"{campo}: {valor}")
+                            if campo != 'raw_output':
+                                print(f"{campo}: {valor}")
                     else:
                         print(resultado.html_parse())
-
-                    # Mostrar resultados parseados
-                    for campo, valor in resultado.items():
-                        if campo != 'raw_output':
-                            print(f"{campo}: {valor}")
                     print("\nSalida completa:")
                 print(resultado.get('raw_output', resultado))
 
