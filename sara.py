@@ -38,7 +38,7 @@ def cargar_configuracion(ruta_config='config.yml'):
         print(f"Error al cargar configuración: {str(e)}")
         sys.exit(1)
 
-def ejecutar_comando(comando, target, timeout=30):
+def ejecutar_comando(comando, target, timeout=None):
     """
     Ejecuta un comando del sistema y retorna su salida.
     
@@ -170,10 +170,11 @@ def ejecutar_perfil(perfil, config, target):
                 cmd_config = config['scan_commands'][herramienta]
                 if cmd_config.get('enabled', True):
                     print(f"\nEjecutando {cmd_config['description']}...")
+                    timeout = cmd_config.get('timeout', config['general']['timeout'])
                     exito, salida = ejecutar_comando(
                         cmd_config['command'],
                         target,
-                        timeout=config['general']['timeout']
+                        timeout=timeout
                     )
                     
                     if exito:
@@ -238,10 +239,11 @@ def main():
         cmd_config = config['scan_commands'][args.command]
         if cmd_config.get('enabled', True):
             print(f"\nEjecutando {cmd_config['description']}...")
+            timeout = cmd_config.get('timeout', config['general']['timeout'])
             exito, salida = ejecutar_comando(
                 cmd_config['command'],
                 args.target,
-                timeout=config['general']['timeout']
+                timeout=timeout
             )
             
             if exito:

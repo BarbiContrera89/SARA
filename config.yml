@@ -5,12 +5,14 @@ scan_commands:
     description: "Prueba de conectividad básica"
     enabled: true
     parser: "ping"
+    timeout: 10
   
   nmap_basic:
     command: "nmap -sV -T4 {target}"
     description: "Escaneo básico de puertos y servicios"
     enabled: true
     parser: "nmap"
+    timeout: 60
   
   whois:
     command: "whois {target}"
@@ -41,6 +43,7 @@ scan_commands:
     description: "Escaneo de puertos y vulnerabilidades con Nmap (scripts vuln)"
     enabled: true
     parser: "nmap_extended"
+    timeout: 180
 
 # Perfiles de escaneo
 scan_profiles:
