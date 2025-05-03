@@ -1056,6 +1056,171 @@ class DirbParser(Parser):
         </div>
         """
 
+class NmapExtendedParser(Parser):
+    def parse(self) -> dict:
+        puertos = []
+        vulnerabilidades = []
+        raw_output = self.output
+        current_port = None
+        current_service = None
+        current_vulns = []
+
+        # Patrones
+        port_line = re.compile(r"^(\d+)/(tcp|udp)\s+open\s+(\S+)(\s+(.+))?")
+        script_line = re.compile(r"\|_(.+)")
+        vuln_script = re.compile(r"\|\s+(.+):\s*(.*)")
+        vuln_detail = re.compile(r"\|\s+\|\s+(.+)")
+
+        lines = self.output.split('\n')
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            port_match = port_line.match(line)
+            if port_match:
+                if current_port:
+                    puertos.append({
+                        'puerto': current_port,
+                        'protocolo': current_proto,
+                        'servicio': current_service,
+                        'version': current_version,
+                        'vulns': current_vulns
+                    })
+                current_port = port_match.group(1)
+                current_proto = port_match.group(2)
+                current_service = port_match.group(3)
+                current_version = port_match.group(5) if port_match.group(5) else ''
+                current_vulns = []
+                i += 1
+                # Parsear scripts de vulnerabilidad para este puerto
+                while i < len(lines) and (lines[i].startswith('|') or lines[i].startswith('|_')):
+                    vuln_match = vuln_script.match(lines[i])
+                    if vuln_match:
+                        script_name = vuln_match.group(1)
+                        script_output = vuln_match.group(2)
+                        details = []
+                        i += 1
+                        # Parsear detalles multilinea
+                        while i < len(lines) and lines[i].startswith('|   '):
+                            detail = lines[i].replace('|   ', '').strip()
+                            details.append(detail)
+                            i += 1
+                        current_vulns.append({
+                            'script': script_name,
+                            'output': script_output,
+                            'details': details
+                        })
+                    else:
+                        i += 1
+                continue
+            i += 1
+        # Añadir el último puerto
+        if current_port:
+            puertos.append({
+                'puerto': current_port,
+                'protocolo': current_proto,
+                'servicio': current_service,
+                'version': current_version,
+                'vulns': current_vulns
+            })
+        result = {
+            'puertos': puertos,
+            'raw_output': raw_output
+        }
+        result['html_report'] = self.generate_html(result)
+        return result
+
+    def generate_html(self, data: dict) -> str:
+        tabla = """
+        <table class="nmap-table">
+            <thead>
+                <tr>
+                    <th>Puerto</th>
+                    <th>Protocolo</th>
+                    <th>Servicio</th>
+                    <th>Versión</th>
+                    <th>Vulnerabilidades detectadas</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+        for p in data['puertos']:
+            vulns_html = ""
+            if p['vulns']:
+                for v in p['vulns']:
+                    vulns_html += f"<div class='vuln-script'><b>{v['script']}</b>: {v['output']}"
+                    if v['details']:
+                        vulns_html += "<ul>"
+                        for d in v['details']:
+                            vulns_html += f"<li>{d}</li>"
+                        vulns_html += "</ul>"
+                    vulns_html += "</div>"
+            else:
+                vulns_html = "<span class='no-vulns'>Sin hallazgos</span>"
+            tabla += f"""
+                <tr>
+                    <td>{p['puerto']}</td>
+                    <td>{p['protocolo']}</td>
+                    <td>{p['servicio']}</td>
+                    <td>{p['version']}</td>
+                    <td>{vulns_html}</td>
+                </tr>
+            """
+        tabla += """
+            </tbody>
+        </table>
+        """
+        return f"""
+        <div class="result-section nmap-extended-result">
+            <div class="nmap-container">
+                <h3>Resultados de Nmap (Vulnerabilidades)</h3>
+                {tabla}
+            </div>
+            <style>
+                .nmap-extended-result {{
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                }}
+                .nmap-container {{
+                    background-color: white;
+                    border-radius: 6px;
+                    padding: 20px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+                }}
+                .nmap-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 20px;
+                }}
+                .nmap-table th, .nmap-table td {{
+                    border: 1px solid #dee2e6;
+                    padding: 8px 12px;
+                    text-align: left;
+                }}
+                .nmap-table th {{
+                    background-color: #2c3e50;
+                    color: #fff;
+                }}
+                .nmap-table tr:nth-child(even) {{
+                    background-color: #f2f2f2;
+                }}
+                .vuln-script {{
+                    margin-bottom: 8px;
+                    padding: 6px 8px;
+                    background: #fff3cd;
+                    border-left: 4px solid #ffc107;
+                    border-radius: 4px;
+                }}
+                .no-vulns {{
+                    color: #28a745;
+                    font-weight: bold;
+                }}
+            </style>
+        </div>
+        """
+
 # Diccionario de parsers disponibles
 PARSERS = {
     'ping': PingParser,
@@ -1064,4 +1229,5 @@ PARSERS = {
     'nikto': NiktoParser,
     'dirb': DirbParser,
     'sslscan': SSLScanParser,
+    'nmap_extended': NmapExtendedParser,
 } 

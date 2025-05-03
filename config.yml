@@ -36,6 +36,12 @@ scan_commands:
     enabled: true
     parser: "sslscan"
 
+  nmap_extended:
+    command: "nmap -sV --script vuln {target}"
+    description: "Escaneo de puertos y vulnerabilidades con Nmap (scripts vuln)"
+    enabled: true
+    parser: "nmap_extended"
+
 # Perfiles de escaneo
 scan_profiles:
   rapido:

@@ -19,6 +19,7 @@ from pathlib import Path
 from parsers import PARSERS
 from report_generator import generar_reporte_html
 from tqdm import tqdm
+import webbrowser
 
 def cargar_configuracion(ruta_config='config.yml'):
     """
@@ -216,6 +217,11 @@ def main():
         help='Generar reporte HTML',
         action='store_true'
     )
+    parser.add_argument(
+        '--open-report',
+        help='Abrir el reporte HTML automáticamente al generarlo',
+        action='store_true'
+    )
     
     args = parser.parse_args()
     
@@ -261,6 +267,8 @@ def main():
     if args.html:
         reporte_html = generar_reporte_html(resultados, config, args.target, args.profile)
         print(f"\nReporte HTML generado: {reporte_html}")
+        if getattr(args, 'open_report', False):
+            webbrowser.open(f'file://{os.path.abspath(reporte_html)}')
 
 if __name__ == "__main__":
     main() 
