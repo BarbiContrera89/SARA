@@ -123,7 +123,7 @@ def mostrar_resultados(resultados, config):
                         for campo, valor in resultado.items():
                             print(f"{campo}: {valor}")
                     else:
-                        print(resultado)
+                        print(resultado.html_parse())
 
                     # Mostrar resultados parseados
                     for campo, valor in resultado.items():
