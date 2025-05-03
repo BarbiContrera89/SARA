@@ -10,41 +10,119 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-@dataclass
-class PingResult:
-    """Resultados del comando ping"""
-    paquetes_enviados: int
-    paquetes_recibidos: int
-    perdida_paquetes: float
-    tiempo_min: float
-    tiempo_avg: float
-    tiempo_max: float
-    raw_output: str
 
-    def html_parse(self) -> str:
+class Parser:
+    """Clase base para todos los parsers"""
+    def __init__(self, output: str):
+        self.output = output
+
+    def parse(self) -> dict:
+        raise NotImplementedError("Los parsers deben implementar este método")
+
+    def generate_html(self, data: dict) -> str:
+        raise NotImplementedError("Los parsers deben implementar este método")
+
+class PingParser(Parser):
+    def parse(self) -> dict:
+        # Patrones para extraer información del ping
+        paquetes_pattern = r"(\d+) packets transmitted, (\d+) received, (\d+)% packet loss"
+        tiempo_pattern = r"min/avg/max/mdev = ([\d.]+)/([\d.]+)/([\d.]+)/[\d.]+ ms"
+
+        paquetes_match = re.search(paquetes_pattern, self.output)
+        tiempo_match = re.search(tiempo_pattern, self.output)
+
+        if not paquetes_match or not tiempo_match:
+            raise ValueError("No se pudo parsear la salida del ping")
+
+        result = {
+            "paquetes_enviados": int(paquetes_match.group(1)),
+            "paquetes_recibidos": int(paquetes_match.group(2)),
+            "perdida_paquetes": float(paquetes_match.group(3)),
+            "tiempo_min": float(tiempo_match.group(1)),
+            "tiempo_avg": float(tiempo_match.group(2)),
+            "tiempo_max": float(tiempo_match.group(3)),
+            "raw_output": self.output
+        }
+        
+        result["html_report"] = self.generate_html(result)
+        return result
+
+    def generate_html(self, data: dict) -> str:
         return f"""
         <div class="result-section ping-result">
             <h3>Resultados de Ping</h3>
             <ul>
-                <li>Paquetes enviados: {self.paquetes_enviados}</li>
-                <li>Paquetes recibidos: {self.paquetes_recibidos}</li>
-                <li>Pérdida de paquetes: {self.perdida_paquetes}%</li>
-                <li>Tiempo mínimo: {self.tiempo_min} ms</li>
-                <li>Tiempo promedio: {self.tiempo_avg} ms</li>
-                <li>Tiempo máximo: {self.tiempo_max} ms</li>
+                <li>Paquetes enviados: {data['paquetes_enviados']}</li>
+                <li>Paquetes recibidos: {data['paquetes_recibidos']}</li>
+                <li>Pérdida de paquetes: {data['perdida_paquetes']}%</li>
+                <li>Tiempo mínimo: {data['tiempo_min']} ms</li>
+                <li>Tiempo promedio: {data['tiempo_avg']} ms</li>
+                <li>Tiempo máximo: {data['tiempo_max']} ms</li>
             </ul>
         </div>
         """
 
-@dataclass
-class NmapResult:
-    """Resultados del escaneo Nmap"""
-    puertos_abiertos: List[Dict[str, str]]
-    servicios_detectados: List[Dict[str, str]]
-    sistema_operativo: Optional[str]
-    raw_output: str
+class NmapParser(Parser):
+    def parse(self) -> dict:
+        puertos_abiertos = []
+        servicios_detectados = []
+        sistema_operativo = None
 
-    def html_parse(self) -> str:
+        # Patrones para diferentes tipos de información
+        puerto_pattern = r"(\d+)/(tcp|udp)\s+open\s+(\w+)"
+        version_pattern = r"(\d+)/(tcp|udp)\s+open\s+(\w+)\s+(.+?)(?=\n|$)"
+        os_pattern = r"OS details: (.+)"
+
+        # Procesar cada línea del output
+        for line in self.output.split('\n'):
+            # Buscar puertos abiertos
+            puerto_match = re.search(puerto_pattern, line)
+            if puerto_match:
+                puertos_abiertos.append({
+                    "puerto": puerto_match.group(1),
+                    "protocolo": puerto_match.group(2),
+                    "estado": "open"
+                })
+                servicios_detectados.append({
+                    "puerto": puerto_match.group(1),
+                    "servicio": puerto_match.group(3),
+                    "version": "No detectada",
+                    "detalles": ""
+                })
+
+            # Buscar información de versión
+            version_match = re.search(version_pattern, line)
+            if version_match:
+                puerto = version_match.group(1)
+                servicio = version_match.group(3)
+                detalles = version_match.group(4).strip()
+                
+                # Actualizar la información del servicio
+                for servicio_info in servicios_detectados:
+                    if servicio_info['puerto'] == puerto:
+                        servicio_info['servicio'] = servicio
+                        if "version" in detalles.lower():
+                            version_match = re.search(r"version:?\s*([^\s,]+)", detalles, re.IGNORECASE)
+                            if version_match:
+                                servicio_info['version'] = version_match.group(1)
+                        servicio_info['detalles'] = detalles
+
+            # Buscar información del sistema operativo
+            os_match = re.search(os_pattern, line)
+            if os_match:
+                sistema_operativo = os_match.group(1)
+
+        result = {
+            "puertos_abiertos": puertos_abiertos,
+            "servicios_detectados": servicios_detectados,
+            "sistema_operativo": sistema_operativo,
+            "raw_output": self.output
+        }
+        
+        result["html_report"] = self.generate_html(result)
+        return result
+
+    def generate_html(self, data: dict) -> str:
         # Categorizar puertos por servicio común
         puertos_categorizados = {
             "Web": [],
@@ -54,23 +132,23 @@ class NmapResult:
             "Otros": []
         }
 
-        for puerto, servicio in zip(self.puertos_abiertos, self.servicios_detectados):
+        for puerto, servicio in zip(data["puertos_abiertos"], data["servicios_detectados"]):
             port_info = {
-                "puerto": puerto['puerto'],
-                "protocolo": puerto['protocolo'],
-                "servicio": servicio['servicio'],
-                "version": servicio.get('version', 'No detectada'),
-                "detalles": servicio.get('detalles', '')
+                "puerto": puerto["puerto"],
+                "protocolo": puerto["protocolo"],
+                "servicio": servicio["servicio"],
+                "version": servicio.get("version", "No detectada"),
+                "detalles": servicio.get("detalles", "")
             }
 
             # Categorizar por puerto común
-            if port_info['puerto'] in ['80', '443', '8080', '8443']:
+            if port_info["puerto"] in ["80", "443", "8080", "8443"]:
                 puertos_categorizados["Web"].append(port_info)
-            elif port_info['puerto'] in ['3306', '5432', '27017']:
+            elif port_info["puerto"] in ["3306", "5432", "27017"]:
                 puertos_categorizados["Base de Datos"].append(port_info)
-            elif port_info['puerto'] in ['25', '110', '143', '465', '587', '993', '995']:
+            elif port_info["puerto"] in ["25", "110", "143", "465", "587", "993", "995"]:
                 puertos_categorizados["Correo"].append(port_info)
-            elif port_info['puerto'] in ['21', '22', '445', '2049']:
+            elif port_info["puerto"] in ["21", "22", "445", "2049"]:
                 puertos_categorizados["Archivos"].append(port_info)
             else:
                 puertos_categorizados["Otros"].append(port_info)
@@ -109,13 +187,13 @@ class NmapResult:
 
         # Sección de sistema operativo
         os_html = ""
-        if self.sistema_operativo:
+        if data["sistema_operativo"]:
             os_html = f"""
             <div class="os-section">
                 <h4>Sistema Operativo Detectado</h4>
                 <div class="os-card">
                     <div class="os-details">
-                        <p>{self.sistema_operativo}</p>
+                        <p>{data["sistema_operativo"]}</p>
                     </div>
                 </div>
             </div>
@@ -128,11 +206,11 @@ class NmapResult:
                 <div class="scan-summary">
                     <div class="summary-item">
                         <span class="label">Puertos Escaneados:</span>
-                        <span class="value">{len(self.puertos_abiertos)}</span>
+                        <span class="value">{len(data["puertos_abiertos"])}</span>
                     </div>
                     <div class="summary-item">
                         <span class="label">Servicios Detectados:</span>
-                        <span class="value">{len(self.servicios_detectados)}</span>
+                        <span class="value">{len(data["servicios_detectados"])}</span>
                     </div>
                 </div>
                 {categorias_html}
@@ -249,17 +327,46 @@ class NmapResult:
         </div>
         """
 
-@dataclass
-class WhoisResult:
-    """Resultados de la consulta Whois"""
-    dominio: str
-    registrante: Optional[str]
-    fecha_creacion: Optional[str]
-    fecha_expiracion: Optional[str]
-    servidores_dns: List[str]
-    raw_output: str
+class WhoisParser(Parser):
+    def parse(self) -> dict:
+        dominio = None
+        registrante = None
+        fecha_creacion = None
+        fecha_expiracion = None
+        servidores_dns = []
 
-    def html_parse(self) -> str:
+        # Patrones para extraer información
+        dominio_pattern = r"Domain Name: (.+)"
+        registrante_pattern = r"Registrant Organization: (.+)"
+        fecha_creacion_pattern = r"Creation Date: (.+)"
+        fecha_expiracion_pattern = r"Registry Expiry Date: (.+)"
+        dns_pattern = r"Name Server: (.+)"
+
+        for line in self.output.split('\n'):
+            if re.search(dominio_pattern, line):
+                dominio = re.search(dominio_pattern, line).group(1)
+            elif re.search(registrante_pattern, line):
+                registrante = re.search(registrante_pattern, line).group(1)
+            elif re.search(fecha_creacion_pattern, line):
+                fecha_creacion = re.search(fecha_creacion_pattern, line).group(1)
+            elif re.search(fecha_expiracion_pattern, line):
+                fecha_expiracion = re.search(fecha_expiracion_pattern, line).group(1)
+            elif re.search(dns_pattern, line):
+                servidores_dns.append(re.search(dns_pattern, line).group(1))
+
+        result = {
+            "dominio": dominio,
+            "registrante": registrante,
+            "fecha_creacion": fecha_creacion,
+            "fecha_expiracion": fecha_expiracion,
+            "servidores_dns": servidores_dns,
+            "raw_output": self.output
+        }
+        
+        result["html_report"] = self.generate_html(result)
+        return result
+
+    def generate_html(self, data: dict) -> str:
         # Generar tabla de información del dominio
         dominio_html = f"""
         <div class="domain-info">
@@ -267,11 +374,11 @@ class WhoisResult:
             <div class="info-card">
                 <div class="info-row">
                     <span class="info-label">Dominio:</span>
-                    <span class="info-value">{self.dominio}</span>
+                    <span class="info-value">{data['dominio']}</span>
                 </div>
-                {f'<div class="info-row"><span class="info-label">Registrante:</span><span class="info-value">{self.registrante}</span></div>' if self.registrante else ''}
-                {f'<div class="info-row"><span class="info-label">Fecha de Creación:</span><span class="info-value">{self.fecha_creacion}</span></div>' if self.fecha_creacion else ''}
-                {f'<div class="info-row"><span class="info-label">Fecha de Expiración:</span><span class="info-value">{self.fecha_expiracion}</span></div>' if self.fecha_expiracion else ''}
+                {f'<div class="info-row"><span class="info-label">Registrante:</span><span class="info-value">{data["registrante"]}</span></div>' if data["registrante"] else ''}
+                {f'<div class="info-row"><span class="info-label">Fecha de Creación:</span><span class="info-value">{data["fecha_creacion"]}</span></div>' if data["fecha_creacion"] else ''}
+                {f'<div class="info-row"><span class="info-label">Fecha de Expiración:</span><span class="info-value">{data["fecha_expiracion"]}</span></div>' if data["fecha_expiracion"] else ''}
             </div>
         </div>
         """
@@ -283,8 +390,8 @@ class WhoisResult:
             <div class="server-list">
         """
         
-        if self.servidores_dns:
-            for dns in self.servidores_dns:
+        if data["servidores_dns"]:
+            for dns in data["servidores_dns"]:
                 dns_html += f"""
                 <div class="server-item">
                     <span class="server-icon">🌐</span>
@@ -375,15 +482,48 @@ class WhoisResult:
         </div>
         """
 
-@dataclass
-class NiktoResult:
-    """Resultados del escaneo Nikto"""
-    vulnerabilidades: List[Dict[str, str]]
-    advertencias: List[Dict[str, str]]
-    informacion: List[Dict[str, str]]
-    raw_output: str
+class NiktoParser(Parser):
+    def parse(self) -> dict:
+        vulnerabilidades = []
+        advertencias = []
+        informacion = []
 
-    def html_parse(self) -> str:
+        # Patrones para diferentes tipos de resultados
+        vuln_pattern = r"\+ (Vulnerability|VULNERABLE): (.+)"
+        warning_pattern = r"\+ (Warning|WARNING): (.+)"
+        info_pattern = r"\+ (Info|INFO): (.+)"
+
+        for line in self.output.split('\n'):
+            if re.search(vuln_pattern, line):
+                match = re.search(vuln_pattern, line)
+                vulnerabilidades.append({
+                    "tipo": match.group(1),
+                    "descripcion": match.group(2)
+                })
+            elif re.search(warning_pattern, line):
+                match = re.search(warning_pattern, line)
+                advertencias.append({
+                    "tipo": match.group(1),
+                    "descripcion": match.group(2)
+                })
+            elif re.search(info_pattern, line):
+                match = re.search(info_pattern, line)
+                informacion.append({
+                    "tipo": match.group(1),
+                    "descripcion": match.group(2)
+                })
+
+        result = {
+            "vulnerabilidades": vulnerabilidades,
+            "advertencias": advertencias,
+            "informacion": informacion,
+            "raw_output": self.output
+        }
+        
+        result["html_report"] = self.generate_html(result)
+        return result
+
+    def generate_html(self, data: dict) -> str:
         # Generar sección de vulnerabilidades
         vuln_html = """
         <div class="vulnerabilities-section">
@@ -391,8 +531,8 @@ class NiktoResult:
             <div class="vulnerabilities-list">
         """
         
-        if self.vulnerabilidades:
-            for vuln in self.vulnerabilidades:
+        if data["vulnerabilidades"]:
+            for vuln in data["vulnerabilidades"]:
                 vuln_html += f"""
                 <div class="vulnerability-item">
                     <div class="vulnerability-header">
@@ -423,8 +563,8 @@ class NiktoResult:
             <div class="warnings-list">
         """
         
-        if self.advertencias:
-            for warning in self.advertencias:
+        if data["advertencias"]:
+            for warning in data["advertencias"]:
                 warning_html += f"""
                 <div class="warning-item">
                     <div class="warning-header">
@@ -455,8 +595,8 @@ class NiktoResult:
             <div class="info-list">
         """
         
-        if self.informacion:
-            for info in self.informacion:
+        if data["informacion"]:
+            for info in data["informacion"]:
                 info_html += f"""
                 <div class="info-item">
                     <div class="info-header">
@@ -551,157 +691,58 @@ class NiktoResult:
         </div>
         """
 
-@dataclass
-class DirbResult:
-    """Resultados del escaneo Dirb"""
-    directorios_encontrados: List[Dict[str, str]]
-    archivos_encontrados: List[Dict[str, str]]
-    raw_output: str
+class SSLScanParser(Parser):
+    def parse(self) -> dict:
+        certificado = {}
+        protocolos_soportados = []
+        cifrados_soportados = []
+        vulnerabilidades = []
 
-    def html_parse(self) -> str:
-        # Generar sección de directorios
-        dirs_html = """
-        <div class="directories-section">
-            <h4>Directorios Encontrados</h4>
-            <div class="directories-list">
-        """
-        
-        if self.directorios_encontrados:
-            for dir_info in self.directorios_encontrados:
-                dirs_html += f"""
-                <div class="directory-item">
-                    <div class="directory-header">
-                        <span class="directory-icon">📁</span>
-                        <span class="directory-path">{dir_info['ruta']}</span>
-                    </div>
-                    <div class="directory-details">
-                        <span class="directory-type">{dir_info['tipo']}</span>
-                    </div>
-                </div>
-                """
-        else:
-            dirs_html += """
-                <div class="no-directories">
-                    No se encontraron directorios
-                </div>
-            """
-        
-        dirs_html += """
-            </div>
-        </div>
-        """
-        
-        # Generar sección de archivos
-        files_html = """
-        <div class="files-section">
-            <h4>Archivos Encontrados</h4>
-            <div class="files-list">
-        """
-        
-        if self.archivos_encontrados:
-            for file_info in self.archivos_encontrados:
-                files_html += f"""
-                <div class="file-item">
-                    <div class="file-header">
-                        <span class="file-icon">📄</span>
-                        <span class="file-path">{file_info['ruta']}</span>
-                    </div>
-                    <div class="file-details">
-                        <span class="file-type">{file_info['tipo']}</span>
-                    </div>
-                </div>
-                """
-        else:
-            files_html += """
-                <div class="no-files">
-                    No se encontraron archivos
-                </div>
-            """
-        
-        files_html += """
-            </div>
-        </div>
-        """
-        
-        return f"""
-        <div class="result-section dirb-result">
-            <h3>Resultados de Dirb</h3>
-            {dirs_html}
-            {files_html}
-            <style>
-                .dirb-result {{
-                    background-color: #f8f9fa;
-                    border-radius: 8px;
-                    padding: 20px;
-                    margin-bottom: 20px;
-                }}
-                .directories-section,
-                .files-section {{
-                    margin-bottom: 20px;
-                }}
-                .directories-list,
-                .files-list {{
-                    display: flex;
-                    flex-direction: column;
-                    gap: 15px;
-                }}
-                .directory-item,
-                .file-item {{
-                    background-color: white;
-                    border-radius: 6px;
-                    padding: 15px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }}
-                .directory-header,
-                .file-header {{
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    margin-bottom: 10px;
-                }}
-                .directory-icon,
-                .file-icon {{
-                    font-size: 1.2em;
-                }}
-                .directory-path,
-                .file-path {{
-                    font-weight: bold;
-                    color: #2c3e50;
-                }}
-                .directory-details,
-                .file-details {{
-                    color: #495057;
-                    font-size: 0.9em;
-                }}
-                .directory-type,
-                .file-type {{
-                    background-color: #e9ecef;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-size: 0.8em;
-                }}
-                .no-directories,
-                .no-files {{
-                    padding: 15px;
-                    text-align: center;
-                    color: #6c757d;
-                    background-color: #f8f9fa;
-                    border-radius: 4px;
-                }}
-            </style>
-        </div>
-        """
+        # Patrones para diferentes secciones
+        cert_pattern = r"Subject: (.+)\nIssuer: (.+)\nNot Before: (.+)\nNot After: (.+)"
+        protocol_pattern = r"Accepted\s+(\w+)\s+"
+        cipher_pattern = r"(\w+)\s+(\w+)\s+(\d+)\s+(\w+)"
+        vuln_pattern = r"Vulnerable to (.+)"
 
-@dataclass
-class SSLScanResult:
-    """Resultados del escaneo SSLScan"""
-    certificado: Dict[str, str]
-    protocolos_soportados: List[str]
-    cifrados_soportados: List[Dict[str, str]]
-    vulnerabilidades: List[str]
-    raw_output: str
+        # Parsear certificado
+        cert_match = re.search(cert_pattern, self.output)
+        if cert_match:
+            certificado = {
+                "subject": cert_match.group(1),
+                "issuer": cert_match.group(2),
+                "not_before": cert_match.group(3),
+                "not_after": cert_match.group(4)
+            }
 
-    def html_parse(self) -> str:
+        # Parsear protocolos
+        for match in re.finditer(protocol_pattern, self.output):
+            protocolos_soportados.append(match.group(1))
+
+        # Parsear cifrados
+        for match in re.finditer(cipher_pattern, self.output):
+            cifrados_soportados.append({
+                "cifrado": match.group(1),
+                "tipo": match.group(2),
+                "bits": match.group(3),
+                "estado": match.group(4)
+            })
+
+        # Parsear vulnerabilidades
+        for match in re.finditer(vuln_pattern, self.output):
+            vulnerabilidades.append(match.group(1))
+
+        result = {
+            "certificado": certificado,
+            "protocolos_soportados": protocolos_soportados,
+            "cifrados_soportados": cifrados_soportados,
+            "vulnerabilidades": vulnerabilidades,
+            "raw_output": self.output
+        }
+        
+        result["html_report"] = self.generate_html(result)
+        return result
+
+    def generate_html(self, data: dict) -> str:
         # Generar sección de certificado
         cert_html = """
         <div class="certificate-section">
@@ -709,8 +750,8 @@ class SSLScanResult:
             <div class="certificate-info">
         """
         
-        if self.certificado:
-            for key, value in self.certificado.items():
+        if data["certificado"]:
+            for key, value in data["certificado"].items():
                 cert_html += f"""
                 <div class="certificate-item">
                     <span class="certificate-label">{key}:</span>
@@ -736,8 +777,8 @@ class SSLScanResult:
             <div class="protocols-list">
         """
         
-        if self.protocolos_soportados:
-            for protocol in self.protocolos_soportados:
+        if data["protocolos_soportados"]:
+            for protocol in data["protocolos_soportados"]:
                 protocols_html += f"""
                 <div class="protocol-item">
                     <span class="protocol-icon">🔒</span>
@@ -763,8 +804,8 @@ class SSLScanResult:
             <div class="ciphers-list">
         """
         
-        if self.cifrados_soportados:
-            for cipher in self.cifrados_soportados:
+        if data["cifrados_soportados"]:
+            for cipher in data["cifrados_soportados"]:
                 ciphers_html += f"""
                 <div class="cipher-item">
                     <div class="cipher-header">
@@ -796,8 +837,8 @@ class SSLScanResult:
             <div class="vulnerabilities-list">
         """
         
-        if self.vulnerabilidades:
-            for vuln in self.vulnerabilidades:
+        if data["vulnerabilidades"]:
+            for vuln in data["vulnerabilidades"]:
                 vuln_html += f"""
                 <div class="vulnerability-item">
                     <span class="vulnerability-icon">⚠️</span>
@@ -917,450 +958,9 @@ class SSLScanResult:
         </div>
         """
 
-@dataclass
-class Enum4linuxResult:
-    """Resultados del escaneo Enum4linux"""
-    usuarios: List[str]
-    grupos: List[str]
-    recursos_compartidos: List[str]
-    informacion_sistema: Dict[str, str]
-    raw_output: str
-
-    def html_parse(self) -> str:
-        # Generar sección de usuarios
-        users_html = """
-        <div class="users-section">
-            <h4>Usuarios Encontrados</h4>
-            <div class="users-list">
-        """
-        
-        if self.usuarios:
-            for user in self.usuarios:
-                users_html += f"""
-                <div class="user-item">
-                    <span class="user-icon">👤</span>
-                    <span class="user-name">{user}</span>
-                </div>
-                """
-        else:
-            users_html += """
-                <div class="no-users">
-                    No se encontraron usuarios
-                </div>
-            """
-        
-        users_html += """
-            </div>
-        </div>
-        """
-        
-        # Generar sección de grupos
-        groups_html = """
-        <div class="groups-section">
-            <h4>Grupos Encontrados</h4>
-            <div class="groups-list">
-        """
-        
-        if self.grupos:
-            for group in self.grupos:
-                groups_html += f"""
-                <div class="group-item">
-                    <span class="group-icon">👥</span>
-                    <span class="group-name">{group}</span>
-                </div>
-                """
-        else:
-            groups_html += """
-                <div class="no-groups">
-                    No se encontraron grupos
-                </div>
-            """
-        
-        groups_html += """
-            </div>
-        </div>
-        """
-        
-        # Generar sección de recursos compartidos
-        shares_html = """
-        <div class="shares-section">
-            <h4>Recursos Compartidos</h4>
-            <div class="shares-list">
-        """
-        
-        if self.recursos_compartidos:
-            for share in self.recursos_compartidos:
-                shares_html += f"""
-                <div class="share-item">
-                    <span class="share-icon">📂</span>
-                    <span class="share-name">{share}</span>
-                </div>
-                """
-        else:
-            shares_html += """
-                <div class="no-shares">
-                    No se encontraron recursos compartidos
-                </div>
-            """
-        
-        shares_html += """
-            </div>
-        </div>
-        """
-        
-        # Generar sección de información del sistema
-        system_html = """
-        <div class="system-section">
-            <h4>Información del Sistema</h4>
-            <div class="system-info">
-        """
-        
-        if self.informacion_sistema:
-            for key, value in self.informacion_sistema.items():
-                system_html += f"""
-                <div class="system-item">
-                    <span class="system-label">{key}:</span>
-                    <span class="system-value">{value}</span>
-                </div>
-                """
-        else:
-            system_html += """
-                <div class="no-system-info">
-                    No se encontró información del sistema
-                </div>
-            """
-        
-        system_html += """
-            </div>
-        </div>
-        """
-        
-        return f"""
-        <div class="result-section enum4linux-result">
-            <h3>Resultados de Enum4linux</h3>
-            {users_html}
-            {groups_html}
-            {shares_html}
-            {system_html}
-            <style>
-                .enum4linux-result {{
-                    background-color: #f8f9fa;
-                    border-radius: 8px;
-                    padding: 20px;
-                    margin-bottom: 20px;
-                }}
-                .users-section,
-                .groups-section,
-                .shares-section,
-                .system-section {{
-                    margin-bottom: 20px;
-                }}
-                .users-list,
-                .groups-list,
-                .shares-list,
-                .system-info {{
-                    display: flex;
-                    flex-direction: column;
-                    gap: 15px;
-                }}
-                .user-item,
-                .group-item,
-                .share-item,
-                .system-item {{
-                    background-color: white;
-                    border-radius: 6px;
-                    padding: 15px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }}
-                .user-item,
-                .group-item,
-                .share-item {{
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                }}
-                .user-icon,
-                .group-icon,
-                .share-icon {{
-                    font-size: 1.2em;
-                }}
-                .user-name,
-                .group-name,
-                .share-name {{
-                    color: #2c3e50;
-                }}
-                .system-item {{
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }}
-                .system-label {{
-                    font-weight: bold;
-                    color: #2c3e50;
-                    width: 150px;
-                }}
-                .system-value {{
-                    color: #495057;
-                }}
-                .no-users,
-                .no-groups,
-                .no-shares,
-                .no-system-info {{
-                    padding: 15px;
-                    text-align: center;
-                    color: #6c757d;
-                    background-color: #f8f9fa;
-                    border-radius: 4px;
-                }}
-            </style>
-        </div>
-        """
-
-class Parser:
-    """Clase base para todos los parsers"""
-    def __init__(self, output: str):
-        self.output = output
-
-    def parse(self):
-        raise NotImplementedError("Los parsers deben implementar este método")
-
-class PingParser(Parser):
-    def parse(self) -> PingResult:
-        # Patrones para extraer información del ping
-        paquetes_pattern = r"(\d+) packets transmitted, (\d+) received, (\d+)% packet loss"
-        tiempo_pattern = r"min/avg/max/mdev = ([\d.]+)/([\d.]+)/([\d.]+)/[\d.]+ ms"
-
-        paquetes_match = re.search(paquetes_pattern, self.output)
-        tiempo_match = re.search(tiempo_pattern, self.output)
-
-        if not paquetes_match or not tiempo_match:
-            raise ValueError("No se pudo parsear la salida del ping")
-
-        return PingResult(
-            paquetes_enviados=int(paquetes_match.group(1)),
-            paquetes_recibidos=int(paquetes_match.group(2)),
-            perdida_paquetes=float(paquetes_match.group(3)),
-            tiempo_min=float(tiempo_match.group(1)),
-            tiempo_avg=float(tiempo_match.group(2)),
-            tiempo_max=float(tiempo_match.group(3)),
-            raw_output=self.output
-        )
-
-class NmapParser(Parser):
-    def parse(self) -> NmapResult:
-        puertos_abiertos = []
-        servicios_detectados = []
-        sistema_operativo = None
-
-        # Patrones para diferentes tipos de información
-        puerto_pattern = r"(\d+)/(tcp|udp)\s+open\s+(\w+)"
-        version_pattern = r"(\d+)/(tcp|udp)\s+open\s+(\w+)\s+(.+?)(?=\n|$)"
-        os_pattern = r"OS details: (.+)"
-
-        # Procesar cada línea del output
-        for line in self.output.split('\n'):
-            # Buscar puertos abiertos
-            puerto_match = re.search(puerto_pattern, line)
-            if puerto_match:
-                puertos_abiertos.append({
-                    "puerto": puerto_match.group(1),
-                    "protocolo": puerto_match.group(2),
-                    "estado": "open"
-                })
-                servicios_detectados.append({
-                    "puerto": puerto_match.group(1),
-                    "servicio": puerto_match.group(3),
-                    "version": "No detectada",
-                    "detalles": ""
-                })
-
-            # Buscar información de versión
-            version_match = re.search(version_pattern, line)
-            if version_match:
-                puerto = version_match.group(1)
-                servicio = version_match.group(3)
-                detalles = version_match.group(4).strip()
-                
-                # Actualizar la información del servicio
-                for servicio_info in servicios_detectados:
-                    if servicio_info['puerto'] == puerto:
-                        servicio_info['servicio'] = servicio
-                        if "version" in detalles.lower():
-                            version_match = re.search(r"version:?\s*([^\s,]+)", detalles, re.IGNORECASE)
-                            if version_match:
-                                servicio_info['version'] = version_match.group(1)
-                        servicio_info['detalles'] = detalles
-
-            # Buscar información del sistema operativo
-            os_match = re.search(os_pattern, line)
-            if os_match:
-                sistema_operativo = os_match.group(1)
-
-        return NmapResult(
-            puertos_abiertos=puertos_abiertos,
-            servicios_detectados=servicios_detectados,
-            sistema_operativo=sistema_operativo,
-            raw_output=self.output
-        )
-
-class WhoisParser(Parser):
-    def parse(self) -> WhoisResult:
-        dominio = None
-        registrante = None
-        fecha_creacion = None
-        fecha_expiracion = None
-        servidores_dns = []
-
-        # Patrones para extraer información
-        dominio_pattern = r"Domain Name: (.+)"
-        registrante_pattern = r"Registrant Organization: (.+)"
-        fecha_creacion_pattern = r"Creation Date: (.+)"
-        fecha_expiracion_pattern = r"Registry Expiry Date: (.+)"
-        dns_pattern = r"Name Server: (.+)"
-
-        for line in self.output.split('\n'):
-            if re.search(dominio_pattern, line):
-                dominio = re.search(dominio_pattern, line).group(1)
-            elif re.search(registrante_pattern, line):
-                registrante = re.search(registrante_pattern, line).group(1)
-            elif re.search(fecha_creacion_pattern, line):
-                fecha_creacion = re.search(fecha_creacion_pattern, line).group(1)
-            elif re.search(fecha_expiracion_pattern, line):
-                fecha_expiracion = re.search(fecha_expiracion_pattern, line).group(1)
-            elif re.search(dns_pattern, line):
-                servidores_dns.append(re.search(dns_pattern, line).group(1))
-
-        return WhoisResult(
-            dominio=dominio,
-            registrante=registrante,
-            fecha_creacion=fecha_creacion,
-            fecha_expiracion=fecha_expiracion,
-            servidores_dns=servidores_dns,
-            raw_output=self.output
-        )
-
-class NiktoParser(Parser):
-    def parse(self) -> NiktoResult:
-        vulnerabilidades = []
-        advertencias = []
-        informacion = []
-
-        # Patrones para diferentes tipos de resultados
-        vuln_pattern = r"\+ (Vulnerability|VULNERABLE): (.+)"
-        warning_pattern = r"\+ (Warning|WARNING): (.+)"
-        info_pattern = r"\+ (Info|INFO): (.+)"
-
-        for line in self.output.split('\n'):
-            if re.search(vuln_pattern, line):
-                match = re.search(vuln_pattern, line)
-                vulnerabilidades.append({
-                    "tipo": match.group(1),
-                    "descripcion": match.group(2)
-                })
-            elif re.search(warning_pattern, line):
-                match = re.search(warning_pattern, line)
-                advertencias.append({
-                    "tipo": match.group(1),
-                    "descripcion": match.group(2)
-                })
-            elif re.search(info_pattern, line):
-                match = re.search(info_pattern, line)
-                informacion.append({
-                    "tipo": match.group(1),
-                    "descripcion": match.group(2)
-                })
-
-        return NiktoResult(
-            vulnerabilidades=vulnerabilidades,
-            advertencias=advertencias,
-            informacion=informacion,
-            raw_output=self.output
-        )
-
-class SSLScanParser(Parser):
-    def parse(self) -> SSLScanResult:
-        certificado = {}
-        protocolos_soportados = []
-        cifrados_soportados = []
-        vulnerabilidades = []
-
-        # Patrones para diferentes secciones
-        cert_pattern = r"Subject: (.+)\nIssuer: (.+)\nNot Before: (.+)\nNot After: (.+)"
-        protocol_pattern = r"Accepted\s+(\w+)\s+"
-        cipher_pattern = r"(\w+)\s+(\w+)\s+(\d+)\s+(\w+)"
-        vuln_pattern = r"Vulnerable to (.+)"
-
-        # Parsear certificado
-        cert_match = re.search(cert_pattern, self.output)
-        if cert_match:
-            certificado = {
-                "subject": cert_match.group(1),
-                "issuer": cert_match.group(2),
-                "not_before": cert_match.group(3),
-                "not_after": cert_match.group(4)
-            }
-
-        # Parsear protocolos
-        for match in re.finditer(protocol_pattern, self.output):
-            protocolos_soportados.append(match.group(1))
-
-        # Parsear cifrados
-        for match in re.finditer(cipher_pattern, self.output):
-            cifrados_soportados.append({
-                "cifrado": match.group(1),
-                "tipo": match.group(2),
-                "bits": match.group(3),
-                "estado": match.group(4)
-            })
-
-        # Parsear vulnerabilidades
-        for match in re.finditer(vuln_pattern, self.output):
-            vulnerabilidades.append(match.group(1))
-
-        return SSLScanResult(
-            certificado=certificado,
-            protocolos_soportados=protocolos_soportados,
-            cifrados_soportados=cifrados_soportados,
-            vulnerabilidades=vulnerabilidades,
-            raw_output=self.output
-        )
-
-class Enum4linuxParser(Parser):
-    def parse(self) -> Enum4linuxResult:
-        usuarios = []
-        grupos = []
-        recursos_compartidos = []
-        informacion_sistema = {}
-
-        # Patrones para diferentes tipos de información
-        user_pattern = r"User: (.+)"
-        group_pattern = r"Group: (.+)"
-        share_pattern = r"Share: (.+)"
-        os_pattern = r"OS: (.+)"
-        domain_pattern = r"Domain: (.+)"
-
-        for line in self.output.split('\n'):
-            if re.search(user_pattern, line):
-                usuarios.append(re.search(user_pattern, line).group(1))
-            elif re.search(group_pattern, line):
-                grupos.append(re.search(group_pattern, line).group(1))
-            elif re.search(share_pattern, line):
-                recursos_compartidos.append(re.search(share_pattern, line).group(1))
-            elif re.search(os_pattern, line):
-                informacion_sistema["os"] = re.search(os_pattern, line).group(1)
-            elif re.search(domain_pattern, line):
-                informacion_sistema["domain"] = re.search(domain_pattern, line).group(1)
-
-        return Enum4linuxResult(
-            usuarios=usuarios,
-            grupos=grupos,
-            recursos_compartidos=recursos_compartidos,
-            informacion_sistema=informacion_sistema,
-            raw_output=self.output
-        )
 
 class DirbParser(Parser):
-    def parse(self) -> DirbResult:
+    def parse(self) -> dict:
         directorios_encontrados = []
         archivos_encontrados = []
 
@@ -1382,11 +982,148 @@ class DirbParser(Parser):
                     "ruta": match.group(2)
                 })
 
-        return DirbResult(
-            directorios_encontrados=directorios_encontrados,
-            archivos_encontrados=archivos_encontrados,
-            raw_output=self.output
-        )
+        result = {
+            "directorios_encontrados": directorios_encontrados,
+            "archivos_encontrados": archivos_encontrados,
+            "raw_output": self.output
+        }
+        
+        result["html_report"] = self.generate_html(result)
+        return result
+
+    def generate_html(self, data: dict) -> str:
+        # Generar sección de directorios
+        dirs_html = """
+        <div class="directories-section">
+            <h4>Directorios Encontrados</h4>
+            <div class="directories-list">
+        """
+        
+        if data["directorios_encontrados"]:
+            for dir_info in data["directorios_encontrados"]:
+                dirs_html += f"""
+                <div class="directory-item">
+                    <div class="directory-header">
+                        <span class="directory-icon">📁</span>
+                        <span class="directory-path">{dir_info['ruta']}</span>
+                    </div>
+                    <div class="directory-details">
+                        <span class="directory-type">{dir_info['tipo']}</span>
+                    </div>
+                </div>
+                """
+        else:
+            dirs_html += """
+                <div class="no-directories">
+                    No se encontraron directorios
+                </div>
+            """
+        
+        dirs_html += """
+            </div>
+        </div>
+        """
+        
+        # Generar sección de archivos
+        files_html = """
+        <div class="files-section">
+            <h4>Archivos Encontrados</h4>
+            <div class="files-list">
+        """
+        
+        if data["archivos_encontrados"]:
+            for file_info in data["archivos_encontrados"]:
+                files_html += f"""
+                <div class="file-item">
+                    <div class="file-header">
+                        <span class="file-icon">📄</span>
+                        <span class="file-path">{file_info['ruta']}</span>
+                    </div>
+                    <div class="file-details">
+                        <span class="file-type">{file_info['tipo']}</span>
+                    </div>
+                </div>
+                """
+        else:
+            files_html += """
+                <div class="no-files">
+                    No se encontraron archivos
+                </div>
+            """
+        
+        files_html += """
+            </div>
+        </div>
+        """
+        
+        return f"""
+        <div class="result-section dirb-result">
+            <h3>Resultados de Dirb</h3>
+            {dirs_html}
+            {files_html}
+            <style>
+                .dirb-result {{
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                }}
+                .directories-section,
+                .files-section {{
+                    margin-bottom: 20px;
+                }}
+                .directories-list,
+                .files-list {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                }}
+                .directory-item,
+                .file-item {{
+                    background-color: white;
+                    border-radius: 6px;
+                    padding: 15px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }}
+                .directory-header,
+                .file-header {{
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    margin-bottom: 10px;
+                }}
+                .directory-icon,
+                .file-icon {{
+                    font-size: 1.2em;
+                }}
+                .directory-path,
+                .file-path {{
+                    font-weight: bold;
+                    color: #2c3e50;
+                }}
+                .directory-details,
+                .file-details {{
+                    color: #495057;
+                    font-size: 0.9em;
+                }}
+                .directory-type,
+                .file-type {{
+                    background-color: #e9ecef;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 0.8em;
+                }}
+                .no-directories,
+                .no-files {{
+                    padding: 15px;
+                    text-align: center;
+                    color: #6c757d;
+                    background-color: #f8f9fa;
+                    border-radius: 4px;
+                }}
+            </style>
+        </div>
+        """
 
 # Diccionario de parsers disponibles
 PARSERS = {
@@ -1396,5 +1133,4 @@ PARSERS = {
     'nikto': NiktoParser,
     'dirb': DirbParser,
     'sslscan': SSLScanParser,
-    'enum4linux': Enum4linuxParser
 } 
