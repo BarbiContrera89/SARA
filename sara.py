@@ -202,24 +202,14 @@ def main():
         default=None
     )
     parser.add_argument(
-        '-c', '--config',
-        help='Ruta al archivo de configuración (opcional)',
-        default='config.yml'
-    )
-    parser.add_argument(
-        '-f', '--format',
-        help='Formato de salida (json o yaml)',
-        default=config['general']['output_format']
-    )
-    parser.add_argument(
-        '--no-parse',
-        help='Desactivar parseo de resultados',
-        action='store_true'
-    )
-    parser.add_argument(
         '-p', '--profile',
         help='Perfil de escaneo (rapido, completo, web)',
         default='rapido'
+    )
+    parser.add_argument(
+        '-c', '--command',
+        help='Ejecutar un comando específico (nmap, whois, nikto, etc.)',
+        default=None
     )
     parser.add_argument(
         '--html',
@@ -229,23 +219,43 @@ def main():
     
     args = parser.parse_args()
     
-    # Cargar configuración personalizada si se especifica
-    if args.config != 'config.yml':
-        config = cargar_configuracion(args.config)
-    
-    # Desactivar parseo si se especifica
-    if args.no_parse:
-        config['general']['parse_results'] = False
-    
-    # Ejecutar perfil seleccionado
-    resultados = ejecutar_perfil(args.profile, config, args.target)
-    
+    # Cargar configuración
+    config = cargar_configuracion()
+
+    # Ejecutar comando específico o perfil
+    if args.command:
+        if args.command not in config['scan_commands']:
+            print(f"Error: Comando '{args.command}' no encontrado en la configuración")
+            sys.exit(1)
+            
+        print(f"\nEjecutando comando: {args.command}")
+        cmd_config = config['scan_commands'][args.command]
+        if cmd_config.get('enabled', True):
+            print(f"\nEjecutando {cmd_config['description']}...")
+            exito, salida = ejecutar_comando(
+                cmd_config['command'],
+                args.target,
+                timeout=config['general']['timeout']
+            )
+            
+            if exito:
+                resultado_parseado = parsear_resultado(args.command, salida, config)
+                resultados = {args.command: resultado_parseado}
+            else:
+                resultados = {args.command: {'error': salida}}
+        else:
+            print(f"Error: El comando '{args.command}' está deshabilitado en la configuración")
+            sys.exit(1)
+    else:
+        # Ejecutar perfil seleccionado
+        resultados = ejecutar_perfil(args.profile, config, args.target)
+
     # Mostrar resultados
     mostrar_resultados(resultados, config)
     
     # Guardar resultados si se especificó archivo de salida
     if args.output:
-        guardar_resultados(resultados, args.output, args.format)
+        guardar_resultados(resultados, args.output, 'json')
     
     # Generar reporte HTML si se solicita
     if args.html:
