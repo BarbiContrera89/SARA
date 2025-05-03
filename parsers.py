@@ -1152,24 +1152,49 @@ class NmapParser(Parser):
         servicios_detectados = []
         sistema_operativo = None
 
-        # Patrón para puertos abiertos
+        # Patrones para diferentes tipos de información
         puerto_pattern = r"(\d+)/(tcp|udp)\s+open\s+(\w+)"
-        for match in re.finditer(puerto_pattern, self.output):
-            puertos_abiertos.append({
-                "puerto": match.group(1),
-                "protocolo": match.group(2),
-                "estado": "open"
-            })
-            servicios_detectados.append({
-                "puerto": match.group(1),
-                "servicio": match.group(3)
-            })
-
-        # Patrón para sistema operativo
+        version_pattern = r"(\d+)/(tcp|udp)\s+open\s+(\w+)\s+(.+?)(?=\n|$)"
         os_pattern = r"OS details: (.+)"
-        os_match = re.search(os_pattern, self.output)
-        if os_match:
-            sistema_operativo = os_match.group(1)
+
+        # Procesar cada línea del output
+        for line in self.output.split('\n'):
+            # Buscar puertos abiertos
+            puerto_match = re.search(puerto_pattern, line)
+            if puerto_match:
+                puertos_abiertos.append({
+                    "puerto": puerto_match.group(1),
+                    "protocolo": puerto_match.group(2),
+                    "estado": "open"
+                })
+                servicios_detectados.append({
+                    "puerto": puerto_match.group(1),
+                    "servicio": puerto_match.group(3),
+                    "version": "No detectada",
+                    "detalles": ""
+                })
+
+            # Buscar información de versión
+            version_match = re.search(version_pattern, line)
+            if version_match:
+                puerto = version_match.group(1)
+                servicio = version_match.group(3)
+                detalles = version_match.group(4).strip()
+                
+                # Actualizar la información del servicio
+                for servicio_info in servicios_detectados:
+                    if servicio_info['puerto'] == puerto:
+                        servicio_info['servicio'] = servicio
+                        if "version" in detalles.lower():
+                            version_match = re.search(r"version:?\s*([^\s,]+)", detalles, re.IGNORECASE)
+                            if version_match:
+                                servicio_info['version'] = version_match.group(1)
+                        servicio_info['detalles'] = detalles
+
+            # Buscar información del sistema operativo
+            os_match = re.search(os_pattern, line)
+            if os_match:
+                sistema_operativo = os_match.group(1)
 
         return NmapResult(
             puertos_abiertos=puertos_abiertos,
