@@ -137,8 +137,10 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
 
     # Añadir resultados de cada herramienta
     for herramienta, resultado in resultados.items():
-        if hasattr(resultado, 'html_parse'):
-            contenido_html += resultado.html_parse()
+        if isinstance(resultado, dict) and 'html_report' in resultado:
+            contenido_html += resultado['html_report']
+        elif hasattr(resultado, 'html_report'):
+            contenido_html += resultado.html_report
         elif isinstance(resultado, dict) and 'error' in resultado:
             contenido_html += f"""
             <div class="result-section">
