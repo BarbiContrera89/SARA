@@ -43,7 +43,7 @@ scan_commands:
     description: "Escaneo de puertos y vulnerabilidades con Nmap (scripts vuln)"
     enabled: true
     parser: "nmap_extended"
-    timeout: 180
+    timeout: null
 
 # Perfiles de escaneo
 scan_profiles:
