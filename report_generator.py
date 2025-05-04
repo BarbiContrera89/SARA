@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, Any
 import re
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+import os
 
 def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], target: str, perfil: str, knowledge_base=None) -> str:
     """
@@ -74,11 +75,12 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
                 })
 
     # Cargar plantilla Jinja2
+    template_dir = os.path.dirname(os.path.abspath(__file__))
     env = Environment(
-        loader=FileSystemLoader('.'),
+        loader=FileSystemLoader(template_dir),
         autoescape=select_autoescape(['html', 'xml'])
     )
-    template = env.get_template('./reporte_template.html.j2')
+    template = env.get_template('reporte_template.html.j2')
 
     contenido_html = template.render(
         target=target,
