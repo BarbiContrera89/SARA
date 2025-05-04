@@ -78,7 +78,7 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
         loader=FileSystemLoader('.'),
         autoescape=select_autoescape(['html', 'xml'])
     )
-    template = env.get_template('reporte_template.html.j2')
+    template = env.get_template('./reporte_template.html.j2')
 
     contenido_html = template.render(
         target=target,
