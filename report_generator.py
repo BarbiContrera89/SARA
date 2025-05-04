@@ -171,7 +171,7 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
             has_results = info.get('searchsploit_has_results', False)
             if has_results:
                 exploits_html += f'''
-                <details class="raw-output-block" style="margin-bottom:10px;">
+                <details class="raw-output-block" style="margin-bottom:30px;">
                   <summary style="cursor:pointer;font-weight:bold;">{port} - {info.get('software','')} {info.get('version','')}</summary>
                   <pre style="background:#222;color:#eee;padding:10px;border-radius:6px;overflow-x:auto;max-height:400px;white-space:pre-wrap;">{exploits}</pre>
                 </details>
