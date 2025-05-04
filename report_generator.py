@@ -118,6 +118,13 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
                 background-color: #e74c3c;
                 color: white;
             }}
+            a {{
+                color: #3498db;
+                text-decoration: none;
+            }}
+            a:hover {{
+                text-decoration: underline;
+            }}
         </style>
     </head>
     <body>
