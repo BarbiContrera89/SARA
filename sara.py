@@ -202,7 +202,7 @@ def run_searchsploit(knowledge_base):
                 text=True
             )
             exploits = result.stdout.strip()
-            has_results = ("Exploits: No Results" not in exploits) and ("Shellcodes: No Results" not in exploits) and exploits
+            has_results = ("Exploits: No Results" not in exploits) or ("Shellcodes: No Results" not in exploits) and exploits
         except Exception as e:
             exploits = f"Error ejecutando searchsploit: {e}"
             has_results = False
