@@ -220,7 +220,9 @@ class NmapParser(Parser):
         return html
 
 class NiktoParser(Parser):
-    def parse(self) -> dict:
+    def parse(self, knowledge_base=None) -> dict:
+        if knowledge_base is None:
+            knowledge_base = {}
         vulnerabilidades = []
         advertencias = []
         informacion = []

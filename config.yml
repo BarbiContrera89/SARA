@@ -15,7 +15,7 @@ scan_commands:
     timeout: null
 
   dirb:
-    command: "dirb http://{target} -S"
+    command: "dirb http://{target} -S -w /usr/share/wordlists/dirb/common.txt"
     description: "Búsqueda de directorios web"
     enabled: true
     parser: "dirb"
