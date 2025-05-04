@@ -190,14 +190,9 @@ def ejecutar_perfil(perfil, config, target, knowledge_base):
 
 def run_searchsploit(knowledge_base):
     for port, info in knowledge_base.items():
-        software = info.get('software', '')
         version = info.get('version', '')
-        if software and version and version != 'No detectada':
-            query = f"{software} {version}"
-        else:
-            query = software
         # Guardar el comando usado
-        searchsploit_cmd = f'searchsploit --id --www --disable-colour "{query}"'
+        searchsploit_cmd = f'searchsploit --www --disable-colour "{version}"'
         try:
             cmd = searchsploit_cmd
             result = subprocess.run(
