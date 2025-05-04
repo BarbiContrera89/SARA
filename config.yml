@@ -1,42 +1,24 @@
 # Configuración de comandos de escaneo
 scan_commands:
-  ping:
-    command: "ping -n 4 {target}"
-    description: "Prueba de conectividad básica"
-    enabled: true
-    parser: "ping"
-    timeout: 10
-  
-  nmap_basic:
+  nmap:
     command: "nmap -sV -T4 {target}"
     description: "Escaneo básico de puertos y servicios"
     enabled: true
     parser: "nmap"
     timeout: 60
-  
-  whois:
-    command: "whois {target}"
-    description: "Información de registro WHOIS"
-    enabled: true
-    parser: "whois"
 
   nikto:
     command: "nikto -h {target}"
     description: "Escaneo de vulnerabilidades web"
     enabled: true
     parser: "nikto"
+    timeout: null
 
   dirb:
     command: "dirb http://{target} -S"
     description: "Búsqueda de directorios web"
     enabled: true
     parser: "dirb"
-
-  sslscan:
-    command: "sslscan {target}"
-    description: "Análisis de configuración SSL/TLS"
-    enabled: true
-    parser: "sslscan"
 
   nmap_extended:
     command: "nmap -sV --script vuln {target}"
@@ -48,20 +30,16 @@ scan_commands:
 # Perfiles de escaneo
 scan_profiles:
   rapido:
-    - ping
-    - nmap_basic
-  
+    - nmap
+
   completo:
-    - ping
-    - nmap_basic
-    - whois
     - nikto
-    - sslscan
+    - dirb
+    - nmap_extended
   
   web:
     - nikto
     - dirb
-    - sslscan
 
 # Configuración general
 general:

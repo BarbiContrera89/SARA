@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
-def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], target: str, perfil: str) -> str:
+def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], target: str, perfil: str, knowledge_base=None) -> str:
     """
     Genera un reporte HTML con los resultados del escaneo.
     
@@ -18,6 +18,7 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
         config: Configuración del escaneo
         target: IP o dominio objetivo
         perfil: Perfil de escaneo utilizado
+        knowledge_base: Base de conocimiento para searchsploit
         
     Returns:
         str: Ruta al archivo HTML generado
@@ -157,6 +158,24 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
                 <pre>{str(resultado)}</pre>
             </div>
             """
+
+    # Añadir sección de exploits si knowledge_base tiene searchsploit
+    if knowledge_base:
+        exploits_html = """
+        <div class="result-section exploits-section">
+            <h3>Resultados de Searchsploit por puerto/servicio</h3>
+        """
+        for port, info in knowledge_base.items():
+            exploits = info.get('searchsploit', '').strip()
+            if exploits:
+                exploits_html += f'''
+                <details class="raw-output-block" style="margin-bottom:10px;">
+                  <summary style="cursor:pointer;font-weight:bold;">{port} - {info.get('software','')} {info.get('version','')}</summary>
+                  <pre style="background:#222;color:#eee;padding:10px;border-radius:6px;overflow-x:auto;max-height:400px;">{exploits}</pre>
+                </details>
+                '''
+        exploits_html += "</div>"
+        contenido_html += exploits_html
 
     # Cerrar el HTML
     contenido_html += """

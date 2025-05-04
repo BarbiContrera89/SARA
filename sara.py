@@ -65,7 +65,7 @@ def ejecutar_comando(comando, target, timeout=None):
     except Exception as e:
         return False, f"Error al ejecutar comando: {str(e)}"
 
-def parsear_resultado(herramienta, salida, config):
+def parsear_resultado(herramienta, salida, config, knowledge_base=None):
     """
     Parsea el resultado de un comando usando el parser correspondiente.
     
@@ -73,6 +73,7 @@ def parsear_resultado(herramienta, salida, config):
         herramienta (str): Nombre de la herramienta
         salida (str): Salida del comando
         config (dict): Configuración del comando
+        knowledge_base (dict): Base de conocimiento actualizada
         
     Returns:
         dict: Resultado parseado
@@ -86,7 +87,7 @@ def parsear_resultado(herramienta, salida, config):
         
     try:
         parser = PARSERS[parser_name](salida)
-        resultado = parser.parse()
+        resultado = parser.parse(knowledge_base=knowledge_base)
         return resultado
     except Exception as e:
         print(f"Error al parsear resultado de {herramienta}: {str(e)}")
@@ -144,7 +145,7 @@ def guardar_resultados(resultados, archivo_salida, formato='json'):
     except Exception as e:
         print(f"Error al guardar resultados: {str(e)}")
 
-def ejecutar_perfil(perfil, config, target):
+def ejecutar_perfil(perfil, config, target, knowledge_base):
     """
     Ejecuta un perfil de escaneo específico.
     
@@ -152,6 +153,7 @@ def ejecutar_perfil(perfil, config, target):
         perfil (str): Nombre del perfil a ejecutar
         config (dict): Configuración cargada
         target (str): IP o dominio objetivo
+        knowledge_base (dict): Base de conocimiento actualizada
         
     Returns:
         dict: Resultados del perfil
@@ -178,7 +180,7 @@ def ejecutar_perfil(perfil, config, target):
                     )
                     
                     if exito:
-                        resultado_parseado = parsear_resultado(herramienta, salida, config)
+                        resultado_parseado = parsear_resultado(herramienta, salida, config, knowledge_base=knowledge_base)
                         resultados[herramienta] = resultado_parseado
                     else:
                         resultados[herramienta] = {'error': salida}
@@ -186,9 +188,29 @@ def ejecutar_perfil(perfil, config, target):
             
     return resultados
 
+def run_searchsploit(knowledge_base):
+    for port, info in knowledge_base.items():
+        software = info.get('software', '')
+        version = info.get('version', '')
+        if software and version and version != 'No detectada':
+            query = f"{software} {version}"
+        else:
+            query = software
+        try:
+            result = subprocess.run(
+                ["searchsploit", query],
+                capture_output=True,
+                text=True
+            )
+            exploits = result.stdout.strip()
+        except Exception as e:
+            exploits = f"Error ejecutando searchsploit: {e}"
+        knowledge_base[port]['searchsploit'] = exploits
+
 def main():
     # Cargar configuración
     config = cargar_configuracion()
+    knowledge_base = {}
     
     # Configuración del parser de argumentos
     parser = argparse.ArgumentParser(
@@ -223,12 +245,14 @@ def main():
         help='Abrir el reporte HTML automáticamente al generarlo',
         action='store_true'
     )
+    parser.add_argument(
+        '--searchsploit',
+        help='Buscar exploits en searchsploit para cada software/versión detectado',
+        action='store_true'
+    )
     
     args = parser.parse_args()
     
-    # Cargar configuración
-    config = cargar_configuracion()
-
     # Ejecutar comando específico o perfil
     if args.command:
         if args.command not in config['scan_commands']:
@@ -247,7 +271,7 @@ def main():
             )
             
             if exito:
-                resultado_parseado = parsear_resultado(args.command, salida, config)
+                resultado_parseado = parsear_resultado(args.command, salida, config, knowledge_base=knowledge_base)
                 resultados = {args.command: resultado_parseado}
             else:
                 resultados = {args.command: {'error': salida}}
@@ -256,7 +280,7 @@ def main():
             sys.exit(1)
     else:
         # Ejecutar perfil seleccionado
-        resultados = ejecutar_perfil(args.profile, config, args.target)
+        resultados = ejecutar_perfil(args.profile, config, args.target, knowledge_base)
 
     # Mostrar resultados
     mostrar_resultados(resultados, config)
@@ -267,10 +291,16 @@ def main():
     
     # Generar reporte HTML si se solicita
     if args.html:
-        reporte_html = generar_reporte_html(resultados, config, args.target, args.profile)
+        if getattr(args, 'searchsploit', False):
+            run_searchsploit(knowledge_base)
+        reporte_html = generar_reporte_html(resultados, config, args.target, args.profile, knowledge_base=knowledge_base)
         print(f"\nReporte HTML generado: {reporte_html}")
         if getattr(args, 'open_report', False):
             webbrowser.open(f'file://{os.path.abspath(reporte_html)}')
+
+    # Guardar knowledge_base en knowledge_base.json
+    with open('knowledge_base.json', 'w', encoding='utf-8') as f:
+        json.dump(knowledge_base, f, indent=2, ensure_ascii=False)
 
 if __name__ == "__main__":
     main() 
