@@ -21,7 +21,7 @@ scan_commands:
     parser: "whois"
 
   nikto:
-    command: "nikto -h {target} -Format txt"
+    command: "nikto -h {target}"
     description: "Escaneo de vulnerabilidades web"
     enabled: true
     parser: "nikto"
