@@ -8,6 +8,7 @@ Generador de reportes HTML para SARA
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
+import re
 
 def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], target: str, perfil: str, knowledge_base=None) -> str:
     """
@@ -169,15 +170,23 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
         for port, info in knowledge_base.items():
             exploits = info.get('searchsploit', '').strip()
             has_results = info.get('searchsploit_has_results', False)
+            raw_cmd = info.get('searchsploit_cmd', '')
             if has_results:
+                # Hacer URLs clickeables
+                exploits_html_content = re.sub(r'(https?://\S+)', r'<a href="\1" target="_blank">\1</a>', exploits)
                 exploits_html += f'''
                 <details class="raw-output-block" style="margin-bottom:30px;">
                   <summary style="cursor:pointer;font-weight:bold;">{port} - {info.get('software','')} {info.get('version','')}</summary>
-                  <pre style="background:#222;color:#eee;padding:10px;border-radius:6px;overflow-x:auto;max-height:400px;white-space:pre-wrap;">{exploits}</pre>
+                  <div style="margin-bottom:8px;font-size:0.95em;color:#888;">Comando usado: <code>{raw_cmd}</code></div>
+                  <pre style="background:#222;color:#eee;padding:10px;border-radius:6px;overflow-x:auto;max-height:400px;white-space:pre-wrap;">{exploits_html_content}</pre>
+                  <details style="margin-top:8px;">
+                    <summary style="cursor:pointer;font-size:0.95em;">Ver salida completa de searchsploit</summary>
+                    <pre style="background:#111;color:#eee;padding:8px;border-radius:6px;overflow-x:auto;max-height:300px;white-space:pre-wrap;">{exploits}</pre>
+                  </details>
                 </details>
                 '''
             else:
-                sin_resultados.append(f"{port} - {info.get('software','')} {info.get('version','')}")
+                sin_resultados.append(port)
         exploits_html += """
         </div>
         """
