@@ -197,10 +197,8 @@ def run_searchsploit(knowledge_base):
         else:
             query = software
         try:
-            cmd = f'searchsploit --disable-colour "{query}"'
             result = subprocess.run(
-                cmd,
-                shell=True,
+                ["searchsploit", "--disable-colour", query],
                 capture_output=True,
                 text=True
             )
