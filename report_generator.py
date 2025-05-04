@@ -187,8 +187,11 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
                 <h4>Puertos/servicios sin exploits encontrados:</h4>
                 <ul>
             """
-            for s in sin_resultados:
-                exploits_html += f"<li>{s}</li>"
+            for port in knowledge_base:
+                info = knowledge_base[port]
+                if not info.get('searchsploit_has_results', False):
+                    cmd = info.get('searchsploit_cmd', '')
+                    exploits_html += f"<li><b>{port} - {info.get('software','')} {info.get('version','')}</b><br><span style='font-size:0.95em;color:#888;'>Comando usado: <code>{cmd}</code></span></li>"
             exploits_html += "</ul></div>"
         contenido_html += exploits_html
 

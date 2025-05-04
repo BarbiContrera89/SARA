@@ -192,9 +192,17 @@ def run_searchsploit(knowledge_base):
     for port, info in knowledge_base.items():
         software = info.get('software', '')
         version = info.get('version', '')
+        if software and version and version != 'No detectada':
+            query = f"{software} {version}"
+        else:
+            query = software
+        # Guardar el comando usado
+        searchsploit_cmd = f'searchsploit --disable-colour "{query}"'
         try:
+            cmd = searchsploit_cmd
             result = subprocess.run(
-                ["searchsploit", "--disable-colour", version],
+                cmd,
+                shell=True,
                 capture_output=True,
                 text=True
             )
@@ -205,6 +213,7 @@ def run_searchsploit(knowledge_base):
             has_results = False
         knowledge_base[port]['searchsploit'] = exploits
         knowledge_base[port]['searchsploit_has_results'] = bool(has_results)
+        knowledge_base[port]['searchsploit_cmd'] = searchsploit_cmd
 
 def main():
     # Cargar configuración
