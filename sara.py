@@ -192,7 +192,7 @@ def run_searchsploit(knowledge_base):
     for port, info in knowledge_base.items():
         version = info.get('version', '')
         # Guardar el comando usado
-        searchsploit_cmd = f'searchsploit --www --disable-colour {version}'
+        searchsploit_cmd = f'searchsploit --www --disable-colour "{version}"'
         try:
             cmd = searchsploit_cmd
             result = subprocess.run(
