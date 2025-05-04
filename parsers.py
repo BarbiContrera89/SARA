@@ -22,6 +22,14 @@ class Parser:
     def generate_html(self, data: dict) -> str:
         raise NotImplementedError("Los parsers deben implementar este método")
 
+    def _collapsible_raw_output(self, raw_output):
+        return f'''
+        <details class="raw-output-block">
+          <summary style="cursor:pointer;font-weight:bold;">Ver salida completa (raw_output)</summary>
+          <pre style="background:#222;color:#eee;padding:10px;border-radius:6px;overflow-x:auto;max-height:400px;">{raw_output}</pre>
+        </details>
+        '''
+
 class PingParser(Parser):
     def parse(self) -> dict:
         # Patrones para extraer información del ping
@@ -48,7 +56,7 @@ class PingParser(Parser):
         return result
 
     def generate_html(self, data: dict) -> str:
-        return f"""
+        html = f"""
         <div class="result-section ping-result">
             <h3>Resultados de Ping</h3>
             <ul>
@@ -61,6 +69,8 @@ class PingParser(Parser):
             </ul>
         </div>
         """
+        html += self._collapsible_raw_output(data['raw_output'])
+        return html
 
 class NmapParser(Parser):
     def parse(self) -> dict:
@@ -158,7 +168,7 @@ class NmapParser(Parser):
             </div>
             """
         
-        return f"""
+        html = f"""
         <div class="result-section nmap-result">
             <div class="nmap-container">
                 <h3>Resultados de Nmap</h3>
@@ -247,6 +257,8 @@ class NmapParser(Parser):
             </style>
         </div>
         """
+        html += self._collapsible_raw_output(data['raw_output'])
+        return html
 
 class WhoisParser(Parser):
     def parse(self) -> dict:
@@ -331,7 +343,7 @@ class WhoisParser(Parser):
         </div>
         """
         
-        return f"""
+        html = f"""
         <div class="result-section whois-result">
             <h3>Resultados de Whois</h3>
             {dominio_html}
@@ -402,6 +414,8 @@ class WhoisParser(Parser):
             </style>
         </div>
         """
+        html += self._collapsible_raw_output(data['raw_output'])
+        return html
 
 class NiktoParser(Parser):
     def parse(self) -> dict:
@@ -541,7 +555,7 @@ class NiktoParser(Parser):
         </div>
         """
         
-        return f"""
+        html = f"""
         <div class="result-section nikto-result">
             <h3>Resultados de Nikto</h3>
             {vuln_html}
@@ -611,6 +625,8 @@ class NiktoParser(Parser):
             </style>
         </div>
         """
+        html += self._collapsible_raw_output(data['raw_output'])
+        return html
 
 class SSLScanParser(Parser):
     def parse(self) -> dict:
@@ -778,7 +794,7 @@ class SSLScanParser(Parser):
         </div>
         """
         
-        return f"""
+        html = f"""
         <div class="result-section sslscan-result">
             <h3>Resultados de SSLScan</h3>
             {cert_html}
@@ -878,6 +894,8 @@ class SSLScanParser(Parser):
             </style>
         </div>
         """
+        html += self._collapsible_raw_output(data['raw_output'])
+        return html
 
 
 class DirbParser(Parser):
@@ -977,7 +995,7 @@ class DirbParser(Parser):
         </div>
         """
         
-        return f"""
+        html = f"""
         <div class="result-section dirb-result">
             <h3>Resultados de Dirb</h3>
             {dirs_html}
@@ -1045,6 +1063,8 @@ class DirbParser(Parser):
             </style>
         </div>
         """
+        html += self._collapsible_raw_output(data['raw_output'])
+        return html
 
 class NmapExtendedParser(Parser):
     def parse(self) -> dict:
@@ -1159,7 +1179,7 @@ class NmapExtendedParser(Parser):
             </tbody>
         </table>
         """
-        return f"""
+        html = f"""
         <div class="result-section nmap-extended-result">
             <div class="nmap-container">
                 <h3>Resultados de Nmap (Vulnerabilidades)</h3>
@@ -1210,6 +1230,8 @@ class NmapExtendedParser(Parser):
             </style>
         </div>
         """
+        html += self._collapsible_raw_output(data['raw_output'])
+        return html
 
 # Diccionario de parsers disponibles
 PARSERS = {
