@@ -19,6 +19,7 @@ scan_commands:
     description: "Búsqueda de directorios web"
     enabled: true
     parser: "dirb"
+    timeout: null
 
   nmap_extended:
     command: "nmap -sV --script vuln {target}"

@@ -697,10 +697,10 @@ class NmapExtendedParser(Parser):
                 for v in p['vulns']:
                     vulns_html += f"<div class='vuln-script'><b>{v['script']}</b>: {v['output']}"
                     if v['details']:
-                        vulns_html += "<ul>"
+                        vulns_html += "<pre style='background:#222;color:#eee;padding:10px;border-radius:6px;overflow-x:auto;max-height:400px;white-space:pre-wrap;'>"
                         for d in v['details']:
-                            vulns_html += f"<li>{d}</li>"
-                        vulns_html += "</ul>"
+                            vulns_html += f"{d}\n"
+                        vulns_html += "</pre>"
                     vulns_html += "</div>"
             else:
                 vulns_html = "<span class='no-vulns'>Sin hallazgos</span>"
