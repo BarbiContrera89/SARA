@@ -197,7 +197,7 @@ def run_searchsploit(knowledge_base):
         else:
             query = software
         # Guardar el comando usado
-        searchsploit_cmd = f'searchsploit --disable-colour "{query}"'
+        searchsploit_cmd = f'searchsploit --id --www --disable-colour "{query}"'
         try:
             cmd = searchsploit_cmd
             result = subprocess.run(
@@ -207,7 +207,7 @@ def run_searchsploit(knowledge_base):
                 text=True
             )
             exploits = result.stdout.strip()
-            has_results = ("No Results" not in exploits) and ("Exploits: No Results" not in exploits) and exploits
+            has_results = ("Exploits: No Results" not in exploits) and ("Shellcodes: No Results" not in exploits) and exploits
         except Exception as e:
             exploits = f"Error ejecutando searchsploit: {e}"
             has_results = False
