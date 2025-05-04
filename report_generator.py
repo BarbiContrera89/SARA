@@ -165,16 +165,31 @@ def generar_reporte_html(resultados: Dict[str, Any], config: Dict[str, Any], tar
         <div class="result-section exploits-section">
             <h3>Resultados de Searchsploit por puerto/servicio</h3>
         """
+        sin_resultados = []
         for port, info in knowledge_base.items():
             exploits = info.get('searchsploit', '').strip()
-            if exploits:
+            has_results = info.get('searchsploit_has_results', False)
+            if has_results:
                 exploits_html += f'''
                 <details class="raw-output-block" style="margin-bottom:10px;">
                   <summary style="cursor:pointer;font-weight:bold;">{port} - {info.get('software','')} {info.get('version','')}</summary>
-                  <pre style="background:#222;color:#eee;padding:10px;border-radius:6px;overflow-x:auto;max-height:400px;">{exploits}</pre>
+                  <pre style="background:#222;color:#eee;padding:10px;border-radius:6px;overflow-x:auto;max-height:400px;white-space:pre-wrap;">{exploits}</pre>
                 </details>
                 '''
-        exploits_html += "</div>"
+            else:
+                sin_resultados.append(f"{port} - {info.get('software','')} {info.get('version','')}")
+        exploits_html += """
+        </div>
+        """
+        if sin_resultados:
+            exploits_html += """
+            <div class="result-section exploits-section">
+                <h4>Puertos/servicios sin exploits encontrados:</h4>
+                <ul>
+            """
+            for s in sin_resultados:
+                exploits_html += f"<li>{s}</li>"
+            exploits_html += "</ul></div>"
         contenido_html += exploits_html
 
     # Cerrar el HTML

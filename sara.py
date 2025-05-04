@@ -198,14 +198,18 @@ def run_searchsploit(knowledge_base):
             query = software
         try:
             result = subprocess.run(
-                ["searchsploit", query],
+                ["searchsploit", "-p", "--color=never", query],
                 capture_output=True,
                 text=True
             )
             exploits = result.stdout.strip()
+            # Determinar si hubo resultados relevantes
+            has_results = ("No Results" not in exploits) and ("Exploits: No Results" not in exploits) and exploits
         except Exception as e:
             exploits = f"Error ejecutando searchsploit: {e}"
+            has_results = False
         knowledge_base[port]['searchsploit'] = exploits
+        knowledge_base[port]['searchsploit_has_results'] = bool(has_results)
 
 def main():
     # Cargar configuración
