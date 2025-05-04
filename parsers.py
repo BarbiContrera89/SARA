@@ -69,44 +69,34 @@ class NmapParser(Parser):
         sistema_operativo = None
 
         # Patrones para diferentes tipos de información
-        puerto_pattern = r"(\d+)/(tcp|udp)\s+open\s+(\w+)"
-        version_pattern = r"(\d+)/(tcp|udp)\s+open\s+(\w+)\s+(.+?)(?=\n|$)"
+        # Ejemplo de línea: 80/tcp   open  http    Apache httpd 2.2.8 ((Ubuntu) DAV/2)
+        puerto_pattern = r"(\d+)/(tcp|udp)\s+open\s+(\w+)(\s+(.+))?"  # Captura puerto, protocolo, servicio, y resto
         os_pattern = r"OS details: (.+)"
 
-        # Procesar cada línea del output
         for line in self.output.split('\n'):
-            # Buscar puertos abiertos
             puerto_match = re.search(puerto_pattern, line)
             if puerto_match:
+                puerto = puerto_match.group(1)
+                protocolo = puerto_match.group(2)
+                servicio = puerto_match.group(3)
+                resto = puerto_match.group(5) if puerto_match.group(5) else ''
+                version = 'No detectada'
+                detalles = ''
+                # Si hay resto, intentamos separar versión de detalles
+                if resto:
+                    # Si parece versión (contiene número y/o palabras tipo 'Apache', 'OpenSSH', etc.)
+                    version = resto.strip()
                 puertos_abiertos.append({
-                    "puerto": puerto_match.group(1),
-                    "protocolo": puerto_match.group(2),
+                    "puerto": puerto,
+                    "protocolo": protocolo,
                     "estado": "open"
                 })
                 servicios_detectados.append({
-                    "puerto": puerto_match.group(1),
-                    "servicio": puerto_match.group(3),
-                    "version": "No detectada",
-                    "detalles": ""
+                    "puerto": puerto,
+                    "servicio": servicio,
+                    "version": version,
+                    "detalles": detalles
                 })
-
-            # Buscar información de versión
-            version_match = re.search(version_pattern, line)
-            if version_match:
-                puerto = version_match.group(1)
-                servicio = version_match.group(3)
-                detalles = version_match.group(4).strip()
-                
-                # Actualizar la información del servicio
-                for servicio_info in servicios_detectados:
-                    if servicio_info['puerto'] == puerto:
-                        servicio_info['servicio'] = servicio
-                        if "version" in detalles.lower():
-                            version_match = re.search(r"version:?\s*([^\s,]+)", detalles, re.IGNORECASE)
-                            if version_match:
-                                servicio_info['version'] = version_match.group(1)
-                        servicio_info['detalles'] = detalles
-
             # Buscar información del sistema operativo
             os_match = re.search(os_pattern, line)
             if os_match:
